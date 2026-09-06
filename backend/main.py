@@ -9,6 +9,11 @@ async def root():
     return {"message": "Hello Badar"}
 
 
+@app.get("/health")
+async def health():
+    return {"message": "OK"}
+
+
 @app.get("/scalar", include_in_schema=False)
 async def scalar_html():
     return get_scalar_api_reference(
