@@ -1,0 +1,123 @@
+"use client";
+
+import { Icon, type IconName } from "@/components/Icon";
+import { useWorkspaceStore } from "@/lib/workspace-store";
+
+const groups = [
+  {
+    label: "Workspace",
+    items: [
+      ["Overview", "grid"],
+      ["Text analyzer", "scan"],
+      ["Named entity recognition", "users"],
+      ["Writing assistant", "file"],
+      ["Predictive text", "spark"],
+      ["Sentiment analysis", "chart"],
+      ["Text summary", "file"],
+      ["Plagiarism check", "search"],
+      ["Documents", "file"],
+      ["Entity explorer", "users"],
+    ],
+  },
+  {
+    label: "Insights",
+    items: [
+      ["Analytics", "chart"],
+      ["Semantic search", "search"],
+      ["Models & pipelines", "layers"],
+    ],
+  },
+] as const;
+
+export function Sidebar() {
+  const {
+    active,
+    collapsed,
+    mobileOpen,
+    selectPage,
+    toggleCollapsed,
+    closeMobile,
+  } = useWorkspaceStore();
+  return (
+    <>
+      {mobileOpen && (
+        <button
+          type="button"
+          aria-label="Close navigation"
+          onClick={closeMobile}
+          className="fixed inset-0 z-20 bg-[#15142b]/30 backdrop-blur-[2px] lg:hidden"
+        />
+      )}
+      <aside
+        aria-label="Primary navigation"
+        className={`fixed inset-y-0 left-0 z-30 flex w-[min(84vw,252px)] flex-col overflow-y-auto border-r border-[#e9e9f2] bg-white px-[14px] py-[22px] shadow-xl transition-[transform,width] duration-300 ease-out lg:static lg:z-auto lg:translate-x-0 lg:shadow-none ${mobileOpen ? "translate-x-0" : "-translate-x-full"} ${collapsed ? "lg:w-[78px]" : "lg:w-[252px]"}`}
+      >
+        <div className="flex items-center justify-between gap-2.5 whitespace-nowrap px-3 pb-[30px] text-[21px] font-extrabold tracking-[-1px]">
+          <div className="flex h-[29px] w-[29px] items-center justify-center rounded-[9px] bg-gradient-to-br from-[#896eff] to-[#5d43d4] text-white">
+            <Icon name="spark" size={19} />
+          </div>
+          <span className={collapsed ? "lg:hidden" : ""}>
+            neural<span className="text-[#7357ef]">text</span>
+          </span>
+          <button
+            type="button"
+            aria-label={collapsed ? "Expand navigation" : "Minimize navigation"}
+            title={collapsed ? "Expand navigation" : "Minimize navigation"}
+            onClick={toggleCollapsed}
+            className="ml-auto flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[#e9e9f2] text-sm font-bold text-[#77778e] transition-all duration-200 hover:scale-105 hover:bg-[#f6f5fd] hover:text-[#7357ef] active:scale-95"
+          >
+            {collapsed ? "»" : "«"}
+          </button>
+          <button
+            type="button"
+            aria-label="Close navigation"
+            onClick={closeMobile}
+            className="ml-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-lg text-[#77778e] hover:bg-[#f6f5fd] hover:text-[#7357ef] lg:hidden"
+          >
+            ×
+          </button>
+        </div>
+        <div className="mb-[27px] flex items-center gap-2 rounded-[10px] border border-[#ededf5] bg-[#f8f8fc] p-2.5">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#d9d1ff] text-xs font-extrabold text-[#644ce1]">
+            N
+          </div>
+          <div className={`min-w-0 flex-1 ${collapsed ? "lg:hidden" : ""}`}>
+            <strong className="block truncate text-[11px]">
+              NeuralText workspace
+            </strong>
+            <small className="mt-0.5 block text-[10px] text-[#9999aa]">
+              Personal workspace
+            </small>
+          </div>
+          <span className={`text-[#a4a3b0] ${collapsed ? "lg:hidden" : ""}`}>
+            ⌄
+          </span>
+        </div>
+        <nav>
+          {groups.map((group) => (
+            <div className="mb-5" key={group.label}>
+              <p
+                className={`mx-3 mb-2 text-[10px] font-bold uppercase tracking-[.09em] text-[#a1a0b0] ${collapsed ? "lg:hidden" : ""}`}
+              >
+                {group.label}
+              </p>
+              {group.items.map(([label, icon]) => (
+                <button
+                  type="button"
+                  key={label}
+                  onClick={() => {
+                    selectPage(label);
+                  }}
+                  className={`my-0.5 flex w-full items-center gap-[13px] rounded-lg px-3 py-2.5 text-left text-[13px] text-[#77778e] transition-all duration-200 hover:translate-x-1 hover:bg-[#f6f5fd] hover:text-[#7357ef] ${active === label ? "bg-[#f0edff] font-bold text-[#654adf] shadow-sm shadow-[#7357ef1a]" : ""} ${collapsed ? "lg:justify-center" : ""}`}
+                >
+                  <Icon name={icon as IconName} />
+                  <span className={collapsed ? "lg:hidden" : ""}>{label}</span>
+                </button>
+              ))}
+            </div>
+          ))}
+        </nav>
+      </aside>
+    </>
+  );
+}
