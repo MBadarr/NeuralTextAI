@@ -14,9 +14,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 const BACKEND_START_COMMAND = "uv run uvicorn app.main:app --reload";
 
 function backendUnavailableError() {
-  return new Error(
-    `Backend is not running. From the backend folder, run "${BACKEND_START_COMMAND}".`,
-  );
+  return new Error(`Backend is not running.".`);
 }
 
 async function getJson<T>(path: string): Promise<T> {
