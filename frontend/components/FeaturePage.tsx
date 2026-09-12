@@ -277,12 +277,12 @@ export function FeaturePage({ active }: { active: string }) {
   }
 
   return (
-    <section className="min-h-[300px] max-w-[760px] rounded-[11px] border border-[#ededf3] bg-white p-8 shadow-sm lg:p-[42px]">
-      <div className="flex h-[58px] w-[58px] items-center justify-center rounded-xl bg-[#f0edff] text-[#7357ef]">
+    <section className="min-h-75 max-w-190 rounded-[11px] border border-[#ededf3] bg-white p-8 shadow-sm lg:p-10.5">
+      <div className="flex h-14.5 w-14.5 items-center justify-center rounded-xl bg-[#f0edff] text-[#7357ef]">
         <Icon name={icons[active] ?? "layers"} size={28} />
       </div>
-      <h2 className="mt-[22px] text-xl font-bold">{active}</h2>
-      <p className="mb-6 max-w-[560px] text-[13px] leading-7 text-[#85859b]">
+      <h2 className="mt-5.5 text-xl font-bold">{active}</h2>
+      <p className="mb-6 max-w-140 text-[13px] leading-7 text-[#85859b]">
         {copy[active]}
       </p>
       <button
