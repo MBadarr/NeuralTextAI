@@ -11,7 +11,7 @@ import type {
 } from "@/types/analysis";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
-const BACKEND_START_COMMAND = "uv run uvicorn app.main:app --reload";
+// const BACKEND_START_COMMAND = "uv run uvicorn app.main:app --reload";
 
 function backendUnavailableError() {
   return new Error(`Backend is not running.`);
