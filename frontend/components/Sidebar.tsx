@@ -52,8 +52,8 @@ export function Sidebar() {
         aria-label="Primary navigation"
         className={`fixed inset-y-0 left-0 z-30 flex w-[min(84vw,252px)] flex-col overflow-y-auto border-r border-[#e9e9f2] bg-white px-[14px] py-[22px] shadow-xl transition-[transform,width] duration-300 ease-out lg:static lg:z-auto lg:translate-x-0 lg:shadow-none ${mobileOpen ? "translate-x-0" : "-translate-x-full"} ${collapsed ? "lg:w-[78px]" : "lg:w-[252px]"}`}
       >
-        <div className="flex items-center justify-between gap-2.5 whitespace-nowrap px-3 pb-[30px] text-[21px] font-extrabold tracking-[-1px]">
-          <div className="flex h-[29px] w-[29px] items-center justify-center rounded-[9px] bg-gradient-to-br from-[#896eff] to-[#5d43d4] text-white">
+        <div className="flex items-center justify-between gap-2.5 whitespace-nowrap px-3 pb-7.5 text-[21px] font-extrabold tracking-[-1px]">
+          <div className="flex h-7.25 w-7.25 items-center justify-center rounded-[9px] bg-linear-to-br from-[#896eff] to-[#5d43d4] text-white">
             <Icon name="spark" size={19} />
           </div>
           <span className={collapsed ? "lg:hidden" : ""}>
@@ -77,7 +77,7 @@ export function Sidebar() {
             ×
           </button>
         </div>
-        <div className="mb-[27px] flex items-center gap-2 rounded-[10px] border border-[#ededf5] bg-[#f8f8fc] p-2.5">
+        <div className="mb-6.75 flex items-center gap-2 rounded-[10px] border border-[#ededf5] bg-[#f8f8fc] p-2.5">
           <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#d9d1ff] text-xs font-extrabold text-[#644ce1]">
             N
           </div>
