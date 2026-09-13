@@ -1,12 +1,15 @@
 from dataclasses import dataclass
 from os import getenv
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
 
 @dataclass(frozen=True)
 class Settings:
-    app_name: str = "NeuralText AI"
-    version: str = "0.1.0"
-    cors_origins: tuple[str, ...] = (getenv("FRONTEND_URL", "http://localhost:3000"),)
+    frontend_url: str = getenv("FRONTEND_URL", "")
 
 
 settings = Settings()
