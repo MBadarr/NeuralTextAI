@@ -89,9 +89,6 @@ export function Sidebar() {
               Personal workspace
             </small>
           </div>
-          <span className={`text-[#a4a3b0] ${collapsed ? "lg:hidden" : ""}`}>
-            ⌄
-          </span>
         </div>
         <nav>
           {groups.map((group) => (
