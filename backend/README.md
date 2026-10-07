@@ -1,12 +1,12 @@
 # NeuralText AI backend
 
-The backend is a package-first FastAPI application. HTTP concerns stay in
-routers, NLP and document behavior stays in services, and configuration,
-schemas, models, and persistence boundaries are kept separate under `app/`.
+The backend is a layered FastAPI application. Public controllers live under
+`routers/v1`, services implement NLP and writing behavior, and repositories
+own document storage. Schemas validate HTTP data; models describe domain data.
 
 ## Run locally
 
-From the `backend/` directory:
+From the `backend/` directory (Python 3.14 or newer and uv required):
 
 ```bash
 uv run uvicorn app.main:app --reload
@@ -41,18 +41,93 @@ All endpoints use JSON. Analysis and writing endpoints accept:
 
 ## Structure
 
-- `app/main.py`: application factory configuration, lifespan, CORS, root, and
-  Scalar route.
-- `app/routers/analysis.py`: analysis, document, insight, model, and writing
-  endpoints.
-- `app/services/nlp.py`: spaCy loading, fallback NER, sentiment, summary,
-  plagiarism, feedback, and autocomplete logic.
-- `app/services/documents.py`: in-memory document repository and aggregates.
-- `app/schemas/`: Pydantic request and response boundaries.
-- `app/core/`: environment configuration and security extension points.
-- `app/db/`: future database adapter and migrations.
-- `app/internal/`: internal administration extension points.
-- `tests/`: standard-library `unittest` integration tests.
+```text
+backend/
+├── app/
+│   ├── __init__.py
+│   ├── main.py
+│   ├── dependencies.py
+│   ├── routers/
+│   │   ├── __init__.py
+│   │   └── v1/
+│   │       ├── __init__.py
+│   │       ├── router.py
+│   │       ├── analysis.py
+│   │       ├── documents.py
+│   │       └── writing.py
+│   ├── internal/
+│   │   ├── __init__.py
+│   │   ├── admin.py
+│   │   ├── health.py
+│   │   └── tasks.py
+│   ├── services/
+│   │   ├── __init__.py
+│   │   ├── nlp_service.py
+│   │   ├── document_service.py
+│   │   └── writing_service.py
+│   ├── repositories/
+│   │   ├── __init__.py
+│   │   └── document_repository.py
+│   ├── models/
+│   │   ├── __init__.py
+│   │   └── document.py
+│   ├── schemas/
+│   │   ├── __init__.py
+│   │   ├── analysis.py
+│   │   ├── document.py
+│   │   └── writing.py
+│   ├── core/
+│   │   ├── __init__.py
+│   │   ├── config.py
+│   │   ├── security.py
+│   │   ├── exceptions.py
+│   │   └── logging.py
+│   └── db/
+│       ├── __init__.py
+│       ├── session.py
+│       ├── base.py
+│       └── migrations/
+│           └── README.md
+├── tests/
+│   ├── __init__.py
+│   ├── controllers/
+│   │   ├── __init__.py
+│   │   ├── test_health.py
+│   │   └── v1/
+│   │       ├── __init__.py
+│   │       ├── test_analysis.py
+│   │       ├── test_documents.py
+│   │       └── test_writing.py
+│   ├── services/
+│   │   ├── __init__.py
+│   │   ├── test_nlp_service.py
+│   │   ├── test_document_service.py
+│   │   └── test_writing_service.py
+│   └── repositories/
+│       ├── __init__.py
+│       └── test_document_repository.py
+├── pyproject.toml
+└── README.md
+```
+
+`routers/v1/router.py` assembles the public API. Its routes retain their existing
+paths (for example `/analysis`, not `/v1/analysis`) so the frontend remains
+compatible. `internal/health.py` owns `/health`; admin and tasks remain future
+extension points with no exposed routes.
+
+Request flow: **controller → service → repository** for documents, or
+**controller → NLP/writing service** for text tools. `dependencies.py` wires
+services and the shared in-memory repository using FastAPI dependencies, which
+tests can override. Services raise domain exceptions; `main.py` converts missing
+documents into HTTP 404 responses.
+
+`models/document.py` contains typed domain dictionaries, while `schemas/` holds
+Pydantic request/response models. `db/base.py` exposes SQLModel metadata and
+`db/session.py` reserves the session boundary; no database is connected yet.
+
+Backend `.env` settings include `FRONTEND_URL` (default
+`http://localhost:3000`) and `SPACY_MODEL` (default `en_core_web_sm`). The NLP
+service falls back to a blank English pipeline if the selected model is absent.
 
 Run tests with:
 

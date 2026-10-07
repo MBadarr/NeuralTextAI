@@ -1,16 +1,23 @@
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app.core.config import settings
-from app.routers.analysis import router
-from app.services.nlp import nlp_service
+from app.core.exceptions import DocumentNotFoundError
+from app.core.logging import get_logger
+from app.internal.health import router as health_router
+from app.routers.v1.router import router
+from app.services.nlp_service import nlp_service
+
+logger = get_logger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     nlp_service.load()
+    logger.info("Loaded NLP model: %s", nlp_service.model_name)
     yield
 
 
@@ -30,6 +37,12 @@ app.add_middleware(
 )
 
 app.include_router(router)
+app.include_router(health_router)
+
+
+@app.exception_handler(DocumentNotFoundError)
+async def document_not_found(_: Request, error: DocumentNotFoundError):
+    return JSONResponse(status_code=404, content={"detail": str(error)})
 
 
 @app.get("/", tags=["system"])

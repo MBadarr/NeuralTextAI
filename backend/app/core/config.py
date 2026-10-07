@@ -9,7 +9,23 @@ load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
 @dataclass(frozen=True)
 class Settings:
-    frontend_url: str = getenv("FRONTEND_URL", "")
+    app_name: str = "NeuralText AI"
+    version: str = "0.1.0"
+    frontend_url: str = getenv("FRONTEND_URL", "http://localhost:3000")
+
+    @property
+    def cors_origins(self) -> list[str]:
+        return list(
+            dict.fromkeys(
+                origin
+                for origin in (
+                    self.frontend_url.rstrip("/"),
+                    "http://localhost:3000",
+                    "http://127.0.0.1:3000",
+                )
+                if origin
+            )
+        )
 
 
 settings = Settings()

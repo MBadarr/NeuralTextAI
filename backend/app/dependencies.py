@@ -1,12 +1,32 @@
-from collections.abc import Generator
+from typing import Annotated
 
-from app.services.documents import DocumentStore, document_store
-from app.services.nlp import NLPService, nlp_service
+from fastapi import Depends
+
+from app.repositories.document_repository import (
+    DocumentRepository,
+    document_repository,
+)
+from app.services.document_service import DocumentService
+from app.services.nlp_service import NLPService, nlp_service
+from app.services.writing_service import WritingService
 
 
-def get_document_store() -> Generator[DocumentStore]:
-    yield document_store
+def get_document_repository() -> DocumentRepository:
+    return document_repository
 
 
-def get_nlp_service() -> Generator[NLPService]:
-    yield nlp_service
+def get_nlp_service() -> NLPService:
+    return nlp_service
+
+
+def get_document_service(
+    repository: Annotated[DocumentRepository, Depends(get_document_repository)],
+    nlp: Annotated[NLPService, Depends(get_nlp_service)],
+) -> DocumentService:
+    return DocumentService(repository, nlp)
+
+
+def get_writing_service(
+    nlp: Annotated[NLPService, Depends(get_nlp_service)],
+) -> WritingService:
+    return WritingService(nlp)

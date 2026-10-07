@@ -6,5 +6,5 @@ localized and avoids coupling routers to a database implementation.
 """
 
 
-def get_database():
+def get_session():
     return None
