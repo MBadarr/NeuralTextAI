@@ -12,6 +12,12 @@ class Settings:
     app_name: str = "NeuralText AI"
     version: str = "0.1.0"
     frontend_url: str = getenv("FRONTEND_URL", "http://localhost:3000")
+    document_database: Path = Path(
+        getenv(
+            "DOCUMENT_DATABASE",
+            str(Path(__file__).resolve().parents[2] / "data" / "neuraltext.sqlite3"),
+        )
+    )
 
     @property
     def cors_origins(self) -> list[str]:

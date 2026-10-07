@@ -10,13 +10,12 @@ class NLPServiceTests(TestCase):
         with patch("app.services.nlp_service.spacy.load", side_effect=OSError):
             self.nlp.load()
 
-    def test_fallback_analysis_preserves_entities_and_tokens(self):
+    def test_fallback_analysis_reports_unavailable_model_without_fake_entities(self):
         result = self.nlp.analyze("Microsoft works in London.")
         self.assertEqual(result["word_count"], 4)
         self.assertEqual(result["sentence_count"], 1)
-        self.assertEqual(
-            [entity["label"] for entity in result["entities"]], ["ORG", "GPE"]
-        )
+        self.assertEqual(result["entities"], [])
+        self.assertTrue(result["warnings"])
         self.assertTrue(result["tokens"])
 
     def test_sentiment_summary_and_comparison(self):

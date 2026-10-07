@@ -1,10 +1,16 @@
-"""Database boundary reserved for persistent storage.
+"""SQLite connections for local document persistence."""
 
-The current MVP intentionally uses an in-memory document store. Keeping this
-module as the database boundary makes adding SQLite or PostgreSQL later
-localized and avoids coupling routers to a database implementation.
-"""
+import sqlite3
+from contextlib import contextmanager
+from pathlib import Path
 
 
-def get_session():
-    return None
+@contextmanager
+def get_session(database_path: Path):
+    database_path.parent.mkdir(parents=True, exist_ok=True)
+    connection = sqlite3.connect(database_path, timeout=15)
+    try:
+        with connection:
+            yield connection
+    finally:
+        connection.close()

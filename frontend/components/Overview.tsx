@@ -25,25 +25,38 @@ export function Overview({
   const [error, setError] = useState("");
 
   useEffect(() => {
-    Promise.all([getDocuments(), getInsights()])
+    const controller = new AbortController();
+    Promise.all([
+      getDocuments(controller.signal),
+      getInsights(controller.signal),
+    ])
       .then(([loadedDocuments, loadedInsights]) => {
+        if (controller.signal.aborted) return;
         setDocuments(loadedDocuments);
         setInsights(loadedInsights);
       })
-      .catch((reason) =>
-        setError(
-          reason instanceof Error
-            ? reason.message
-            : "Could not load overview data.",
-        ),
-      );
+      .catch((reason) => {
+        if (!controller.signal.aborted)
+          setError(
+            reason instanceof Error
+              ? reason.message
+              : "Could not load overview data.",
+          );
+      });
+    return () => controller.abort();
   }, []);
 
   const filteredDocuments = useMemo(
     () =>
-      documents.filter((document) =>
-        document.title.toLowerCase().includes(query.toLowerCase()),
-      ),
+      documents.filter((document) => {
+        const content = `${document.title} ${document.text}`.toLowerCase();
+        return query
+          .toLowerCase()
+          .trim()
+          .split(/\s+/)
+          .filter(Boolean)
+          .every((term) => content.includes(term));
+      }),
     [documents, query],
   );
   const entityCounts = useMemo(() => {
@@ -59,7 +72,7 @@ export function Overview({
     insights?.total_documents ?? 0,
     insights?.total_words ?? 0,
     insights?.total_entities ?? 0,
-    "—",
+    `${insights?.average_processing_time_ms ?? 0} ms`,
   ];
 
   return (
@@ -70,7 +83,7 @@ export function Overview({
             ● Workspace overview
           </p>
           <h1 className="text-2xl font-bold tracking-tight lg:text-[29px]">
-            Good morning, Badar <span className="text-[#f3b649]">✦</span>
+            Your language workspace <span className="text-[#f3b649]">✦</span>
           </h1>
           <p className="mt-2 text-[13px] text-[#85859b]">
             Here&apos;s what&apos;s happening across your NLP workspace.

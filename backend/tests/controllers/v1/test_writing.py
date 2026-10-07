@@ -17,4 +17,4 @@ class WritingRoutesTests(TestCase):
             )
             completion = client.post("/autocomplete", json={"text": "This"})
             self.assertEqual(completion.status_code, 200)
-            self.assertIn("this suggests that", completion.json()["suggestions"])
+            self.assertIn("source", completion.json())

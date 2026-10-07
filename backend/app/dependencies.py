@@ -1,3 +1,4 @@
+from functools import lru_cache
 from typing import Annotated
 
 from fastapi import Depends
@@ -26,6 +27,7 @@ def get_document_service(
     return DocumentService(repository, nlp)
 
 
+@lru_cache(maxsize=4)
 def get_writing_service(
     nlp: Annotated[NLPService, Depends(get_nlp_service)],
 ) -> WritingService:

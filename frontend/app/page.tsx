@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { FeaturePage } from "@/components/FeaturePage";
 import { Icon } from "@/components/Icon";
 import { Overview } from "@/components/Overview";
@@ -9,6 +10,7 @@ import { useWorkspaceStore } from "@/lib/workspace-store";
 
 export default function Home() {
   const { active, query, selectPage } = useWorkspaceStore();
+  const [analysisRevision, setAnalysisRevision] = useState(0);
 
   return (
     <main className="flex min-h-screen bg-[#f8f8fc] text-[#15142b]">
@@ -31,12 +33,19 @@ export default function Home() {
               </div>
               <button
                 type="button"
+                onClick={() => {
+                  selectPage("Text analyzer");
+                  setAnalysisRevision((revision) => revision + 1);
+                }}
                 className="flex items-center gap-2 rounded-lg bg-[#7357ef] px-4 py-3 text-xs font-bold text-white"
               >
-                <Icon name="spark" size={16} /> New {active.toLowerCase()}
+                <Icon name="spark" size={16} /> New analysis
               </button>
             </div>
-            <FeaturePage active={active} />
+            <FeaturePage
+              key={`${active}-${analysisRevision}`}
+              active={active}
+            />
           </div>
         )}
       </section>

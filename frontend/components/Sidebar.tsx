@@ -12,6 +12,8 @@ const groups = [
       ["Named entity recognition", "users"],
       ["Writing assistant", "file"],
       ["Predictive text", "spark"],
+      ["Keyword extraction", "scan"],
+      ["Readability", "file"],
       ["Sentiment analysis", "chart"],
       ["Text summary", "file"],
       ["Plagiarism check", "search"],

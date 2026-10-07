@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends
 
 from app.dependencies import get_document_service, get_nlp_service
-from app.schemas.analysis import AnalysisRequest
+from app.schemas.analysis import AnalysisRequest, SearchRequest, SummaryRequest
 from app.schemas.document import DocumentResponse
 from app.services.document_service import DocumentService
 from app.services.nlp_service import NLPService
@@ -14,27 +14,37 @@ DocumentDependency = Annotated[DocumentService, Depends(get_document_service)]
 
 
 @router.post("/analysis", response_model=DocumentResponse)
-async def create_analysis(payload: AnalysisRequest, documents: DocumentDependency):
+def create_analysis(payload: AnalysisRequest, documents: DocumentDependency):
     return documents.create(payload.text, payload.title)
 
 
 @router.get("/models", tags=["models"])
-async def list_models(nlp: NLPDependency):
+def list_models(nlp: NLPDependency):
     return nlp.models()
 
 
 @router.post("/sentiment")
-async def sentiment(payload: AnalysisRequest, nlp: NLPDependency):
+def sentiment(payload: AnalysisRequest, nlp: NLPDependency):
     return nlp.sentiment(payload.text)
 
 
 @router.post("/summary")
-async def summary(payload: AnalysisRequest, nlp: NLPDependency):
-    return nlp.summary(payload.text)
+def summary(payload: SummaryRequest, nlp: NLPDependency):
+    return nlp.summary(payload.text, payload.sentence_limit)
+
+
+@router.post("/keywords")
+def keywords(payload: AnalysisRequest, nlp: NLPDependency):
+    return nlp.keywords(payload.text)
+
+
+@router.post("/search")
+def search(payload: SearchRequest, nlp: NLPDependency, documents: DocumentDependency):
+    return nlp.search(payload.query, documents.list(), payload.limit)
 
 
 @router.post("/plagiarism")
-async def plagiarism(
+def plagiarism(
     payload: AnalysisRequest, nlp: NLPDependency, documents: DocumentDependency
 ):
     return nlp.plagiarism(payload.text, documents.list())

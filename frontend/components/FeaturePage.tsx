@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-
-import { Icon, type IconName } from "@/components/Icon";
+import { AnalysisResults } from "@/components/AnalysisResults";
 import { TextAnalyzer } from "@/components/TextAnalyzer";
 import { TextTool, type ToolName } from "@/components/TextTool";
 import {
@@ -10,287 +9,351 @@ import {
   getDocuments,
   getInsights,
   getModels,
+  searchDocuments,
 } from "@/lib/api";
-import type { AnalysisResult, Insights, ModelInfo } from "@/types/analysis";
+import { useWorkspaceStore } from "@/lib/workspace-store";
+import type {
+  AnalysisResult,
+  Insights,
+  ModelInfo,
+  SearchResult,
+} from "@/types/analysis";
 
-const copy: Record<string, string> = {
-  Settings: "Update workspace preferences, appearance, and analysis defaults.",
-  "Help center":
-    "Find quick guidance for analyzing documents and understanding NLP results.",
-};
-const icons: Record<string, IconName> = {
-  Documents: "file",
-  "Entity explorer": "users",
-  Analytics: "chart",
-  "Semantic search": "search",
-  "Models & pipelines": "layers",
-  Settings: "settings",
-  "Help center": "help",
-};
+const analyzerPages = [
+  "Text analyzer",
+  "Named entity recognition",
+  "Writing assistant",
+  "Predictive text",
+  "Keyword extraction",
+  "Readability",
+];
+const toolPages = ["Sentiment analysis", "Text summary", "Plagiarism check"];
 
-function ErrorMessage({ message }: { message: string }) {
+function Breakdown({
+  title,
+  counts,
+}: {
+  title: string;
+  counts: Record<string, number>;
+}) {
+  const max = Math.max(1, ...Object.values(counts));
   return (
-    <p className="rounded-lg bg-red-50 p-3 text-xs text-red-600">{message}</p>
+    <div className="space-y-3">
+      <h3 className="text-sm font-bold">{title}</h3>
+      {Object.entries(counts).map(([label, value]) => (
+        <div key={label}>
+          <div className="mb-1 flex justify-between text-xs">
+            <span>{label}</span>
+            <strong>{value}</strong>
+          </div>
+          <div className="h-2 rounded bg-violet-50">
+            <div
+              className="h-2 rounded bg-violet-500"
+              style={{ width: `${(value / max) * 100}%` }}
+            />
+          </div>
+        </div>
+      ))}
+      {!Object.keys(counts).length && (
+        <p className="text-xs text-[#77768b]">
+          Analyze text to see this breakdown.
+        </p>
+      )}
+    </div>
   );
 }
 
 export function FeaturePage({ active }: { active: string }) {
+  const { query, setQuery } = useWorkspaceStore();
   const [documents, setDocuments] = useState<AnalysisResult[]>([]);
   const [insights, setInsights] = useState<Insights | null>(null);
   const [models, setModels] = useState<ModelInfo[]>([]);
-  const [query, setQuery] = useState("");
+  const [search, setSearch] = useState<SearchResult | null>(null);
+  const [selected, setSelected] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [searching, setSearching] = useState(false);
+  const [deleting, setDeleting] = useState<string | null>(null);
 
   useEffect(() => {
-    setError("");
+    if (analyzerPages.includes(active) || toolPages.includes(active)) return;
+    const controller = new AbortController();
     setLoading(true);
-    if (
-      ["Documents", "Entity explorer", "Analytics", "Semantic search"].includes(
-        active,
-      )
-    ) {
-      getDocuments()
-        .then(setDocuments)
-        .catch((reason) =>
-          setError(
-            reason instanceof Error
-              ? reason.message
-              : "Could not load documents.",
-          ),
-        )
-        .finally(() => setLoading(false));
-    }
-    if (active === "Analytics" || active === "Entity explorer") {
-      getInsights()
-        .then(setInsights)
-        .catch((reason) =>
-          setError(
-            reason instanceof Error
-              ? reason.message
-              : "Could not load insights.",
-          ),
-        );
-    }
-    if (active === "Models & pipelines") {
-      getModels()
-        .then(setModels)
-        .catch((reason) =>
-          setError(
-            reason instanceof Error ? reason.message : "Could not load models.",
-          ),
-        )
-        .finally(() => setLoading(false));
-    }
-    if (
-      ![
-        "Documents",
-        "Entity explorer",
-        "Analytics",
-        "Semantic search",
-      ].includes(active) &&
-      active !== "Models & pipelines"
-    )
-      setLoading(false);
+    setError("");
+    setSelected(null);
+    Promise.all([
+      getDocuments(controller.signal),
+      getInsights(controller.signal),
+      getModels(controller.signal),
+    ])
+      .then(([docs, stats, pipelines]) => {
+        if (!controller.signal.aborted) {
+          setDocuments(docs);
+          setInsights(stats);
+          setModels(pipelines);
+        }
+      })
+      .catch((reason) => {
+        if (!controller.signal.aborted) setError(reason.message);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
+    return () => controller.abort();
   }, [active]);
 
-  if (
-    [
-      "Text analyzer",
-      "Named entity recognition",
-      "Writing assistant",
-      "Predictive text",
-    ].includes(active)
-  )
-    return <TextAnalyzer />;
-  if (
-    active === "Sentiment analysis" ||
-    active === "Text summary" ||
-    active === "Plagiarism check"
-  )
-    return <TextTool name={active as ToolName} />;
+  useEffect(() => {
+    if (active !== "Semantic search") return;
+    const controller = new AbortController();
+    setSearch(null);
+    setError("");
+    if (!query.trim()) {
+      setSearching(false);
+      return () => controller.abort();
+    }
+    setSearching(true);
+    const timer = window.setTimeout(() => {
+      searchDocuments(query, controller.signal)
+        .then((result) => {
+          if (!controller.signal.aborted) setSearch(result);
+        })
+        .catch((reason) => {
+          if (!controller.signal.aborted) setError(reason.message);
+        })
+        .finally(() => {
+          if (!controller.signal.aborted) setSearching(false);
+        });
+    }, 350);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [active, query]);
 
-  if (active === "Documents") {
-    return (
-      <section className="rounded-[11px] border border-[#ededf3] bg-white p-5 shadow-sm">
-        <h2 className="text-sm font-bold">Your documents</h2>
-        <p className="mb-5 mt-1 text-[11px] text-[#aaa9b8]">
-          Documents created through the analyzer.
+  async function remove(id: string) {
+    setDeleting(id);
+    setError("");
+    try {
+      await deleteDocument(id);
+      setDocuments((items) => items.filter((item) => item.id !== id));
+      if (selected?.id === id) setSelected(null);
+      setInsights(await getInsights());
+    } catch (reason) {
+      setError(
+        reason instanceof Error ? reason.message : "Could not delete document.",
+      );
+    } finally {
+      setDeleting(null);
+    }
+  }
+
+  if (analyzerPages.includes(active)) return <TextAnalyzer />;
+  if (toolPages.includes(active))
+    return <TextTool key={active} name={active as ToolName} />;
+  const terms = query.toLowerCase().trim().split(/\s+/).filter(Boolean);
+  const filtered = documents.filter((document) => {
+    const content = `${document.title} ${document.text}`.toLowerCase();
+    return terms.every((term) => content.includes(term));
+  });
+  const entities = filtered.flatMap((document) =>
+    document.entities.map((entity) => ({
+      ...entity,
+      documentId: document.id,
+      title: document.title,
+    })),
+  );
+
+  return (
+    <section className="space-y-5 rounded-xl border border-[#ededf3] bg-white p-5 shadow-sm">
+      <h2 className="text-sm font-bold">{active}</h2>
+      {error && (
+        <p
+          role="alert"
+          className="rounded-lg bg-red-50 p-3 text-xs text-red-600"
+        >
+          {error}
         </p>
-        {loading && (
-          <p className="py-8 text-center text-xs text-[#aaa9b8]">
-            Loading documents...
+      )}
+      {loading && <p className="text-sm text-[#77768b]">Loading workspace…</p>}
+      {active === "Documents" && (
+        <>
+          <p className="text-xs text-[#77768b]">
+            Saved analyses, newest first. Select a document to inspect or export
+            its results.
           </p>
-        )}
-        {error && <ErrorMessage message={error} />}
-        {documents.length ? (
-          documents.map((document) => (
+          {filtered.map((document) => (
             <div
-              className="flex items-center justify-between border-b border-[#f0eff4] py-4"
               key={document.id}
+              className="flex items-center justify-between gap-3 border-b border-[#ededf3] py-3"
             >
-              <div>
-                <strong className="block text-xs">{document.title}</strong>
-                <span className="text-[10px] text-[#888797]">
-                  {document.word_count} words · {document.entities.length}{" "}
-                  entities
-                </span>
-              </div>
               <button
                 type="button"
-                className="text-xs text-red-500"
-                onClick={() =>
-                  deleteDocument(document.id)
-                    .then(() =>
-                      setDocuments((items) =>
-                        items.filter((item) => item.id !== document.id),
-                      ),
-                    )
-                    .catch(() => setError("Could not delete document."))
-                }
+                onClick={() => setSelected(document)}
+                className="min-w-0 text-left"
               >
-                Delete
+                <strong className="block text-sm">{document.title}</strong>
+                <span className="text-xs text-[#77768b]">
+                  {document.word_count} words · {document.entities.length}{" "}
+                  entities · {new Date(document.created_at).toLocaleString()}
+                </span>
+              </button>
+              <button
+                type="button"
+                disabled={deleting !== null}
+                onClick={() => remove(document.id)}
+                className="text-xs text-red-600 disabled:opacity-50"
+              >
+                {deleting === document.id ? "Deleting…" : "Delete"}
               </button>
             </div>
-          ))
-        ) : (
-          <p className="py-12 text-center text-xs text-[#aaa9b8]">
-            No documents yet. Analyze some text first.
-          </p>
-        )}
-      </section>
-    );
-  }
-
-  if (active === "Semantic search") {
-    const results = documents.filter((document) =>
-      `${document.title} ${document.text}`
-        .toLowerCase()
-        .includes(query.toLowerCase()),
-    );
-    return (
-      <section className="rounded-[11px] border border-[#ededf3] bg-white p-5 shadow-sm">
-        <h2 className="text-sm font-bold">Search documents</h2>
-        <input
-          className="my-5 w-full rounded-lg border border-[#e6e5ee] p-3 text-xs outline-none focus:border-[#7357ef]"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search titles and text..."
-        />
-        {loading && (
-          <p className="py-8 text-center text-xs text-[#aaa9b8]">
-            Loading documents...
-          </p>
-        )}
-        {error && <ErrorMessage message={error} />}
-        {results.map((document) => (
-          <div className="border-b border-[#f0eff4] py-3" key={document.id}>
-            <strong className="text-xs">{document.title}</strong>
-            <p className="mt-1 line-clamp-2 text-[11px] text-[#888797]">
-              {document.text}
+          ))}
+          {!loading && !error && !filtered.length && (
+            <p className="text-sm text-[#77768b]">
+              No documents found. Analyze some text first.
             </p>
+          )}
+        </>
+      )}
+      {active === "Semantic search" && (
+        <>
+          <label htmlFor="semantic-query" className="block text-xs">
+            Find documents by topic or meaning
+          </label>
+          <input
+            id="semantic-query"
+            maxLength={1000}
+            className="w-full rounded-lg border border-[#e6e5ee] p-3 text-sm"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="e.g. cars and transportation"
+          />
+          {searching && <p className="text-xs">Searching…</p>}
+          {search && (
+            <>
+              <p className="text-xs text-[#77768b]">
+                {search.results.length} results · {search.method}
+              </p>
+              {search.warnings.map((warning) => (
+                <p key={warning} className="text-xs text-amber-800">
+                  {warning}
+                </p>
+              ))}
+              {search.results.map(({ document, score }) => (
+                <button
+                  type="button"
+                  key={document.id}
+                  onClick={() => setSelected(document)}
+                  className="block w-full rounded-lg bg-[#f8f7fd] p-4 text-left"
+                >
+                  <div className="flex justify-between gap-3">
+                    <strong className="text-sm">{document.title}</strong>
+                    <span className="text-xs text-violet-700">
+                      Similarity {Math.round(score * 100)}%
+                    </span>
+                  </div>
+                  <p className="mt-2 line-clamp-3 text-xs leading-6 text-[#77768b]">
+                    {document.text}
+                  </p>
+                </button>
+              ))}
+              {!search.results.length && (
+                <p className="text-sm">No matching documents.</p>
+              )}
+            </>
+          )}
+          {!query.trim() && (
+            <p className="text-sm text-[#77768b]">
+              Enter a query to search your analyzed documents.
+            </p>
+          )}
+        </>
+      )}
+      {active === "Models & pipelines" &&
+        models.map((model) => (
+          <div
+            key={model.name}
+            className="space-y-3 rounded-lg bg-[#f8f7fd] p-4"
+          >
+            <strong className="text-sm">{model.name}</strong>
+            <p className="text-xs">
+              {model.trained
+                ? "Trained pipeline ready"
+                : "Limited fallback pipeline"}{" "}
+              · {model.vectors} vector dimensions
+            </p>
+            <p className="text-xs text-[#77768b]">
+              Pipeline: {model.components.join(", ")}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {model.capabilities.map((capability) => (
+                <span
+                  key={capability}
+                  className="rounded-full bg-white px-3 py-2 text-xs"
+                >
+                  {capability}
+                </span>
+              ))}
+            </div>
           </div>
         ))}
-        {!results.length && (
-          <p className="py-8 text-center text-xs text-[#aaa9b8]">
-            No matching documents.
-          </p>
-        )}
-      </section>
-    );
-  }
-
-  if (active === "Models & pipelines") {
-    return (
-      <section className="rounded-[11px] border border-[#ededf3] bg-white p-5 shadow-sm">
-        <h2 className="text-sm font-bold">Models & pipelines</h2>
-        {error && <ErrorMessage message={error} />}
-        {loading && (
-          <p className="py-8 text-center text-xs text-[#aaa9b8]">
-            Loading models...
-          </p>
-        )}
-        {models.map((model) => (
-          <div className="mt-5 rounded-lg bg-[#f8f7fd] p-4" key={model.name}>
-            <strong className="text-xs">{model.name}</strong>
-            <p className="mt-2 text-[11px] text-[#888797]">
-              {model.language} · {model.components.join(", ") || "sentencizer"}
-            </p>
-          </div>
-        ))}
-        {!loading && !models.length && !error && (
-          <p className="py-8 text-center text-xs text-[#aaa9b8]">
-            No models are available.
-          </p>
-        )}
-      </section>
-    );
-  }
-
-  if (active === "Analytics" || active === "Entity explorer") {
-    return (
-      <section className="rounded-[11px] border border-[#ededf3] bg-white p-5 shadow-sm">
-        <div className="flex h-[58px] w-[58px] items-center justify-center rounded-xl bg-[#f0edff] text-[#7357ef]">
-          <Icon name={icons[active]} size={28} />
-        </div>
-        <h2 className="mt-5 text-xl font-bold">{active}</h2>
-        {error && <ErrorMessage message={error} />}
-        {loading && (
-          <p className="mt-6 text-xs text-[#aaa9b8]">Loading insights...</p>
-        )}
-        {insights && (
-          <div className="mt-6 grid grid-cols-3 gap-3">
+      {(active === "Analytics" || active === "Entity explorer") && insights && (
+        <>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {[
               ["Documents", insights.total_documents],
               ["Words", insights.total_words],
               ["Entities", insights.total_entities],
+              ["Avg. milliseconds", insights.average_processing_time_ms],
             ].map(([label, value]) => (
               <div
-                className="rounded-lg bg-[#f8f7fd] p-4 text-center"
                 key={label}
+                className="rounded-lg bg-[#f8f7fd] p-4 text-center"
               >
-                <strong className="block text-xl text-[#7357ef]">
+                <strong className="block text-xl text-violet-700">
                   {value}
                 </strong>
-                <span className="text-[10px] text-[#888797]">{label}</span>
+                <span className="text-xs text-[#77768b]">{label}</span>
               </div>
             ))}
           </div>
-        )}
-        {active === "Entity explorer" && documents.length > 0 && (
-          <div className="mt-6 space-y-2">
-            {documents
-              .flatMap((document) => document.entities)
-              .map((entity, index) => (
-                <div
-                  className="flex justify-between rounded-lg bg-[#f8f7fd] p-3 text-xs"
-                  key={`${entity.text}-${index}`}
-                >
-                  <strong>{entity.text}</strong>
-                  <span className="text-[#7357ef]">{entity.label}</span>
-                </div>
-              ))}
+          <div className="grid gap-6 md:grid-cols-3">
+            <Breakdown title="Entity types" counts={insights.entity_counts} />
+            <Breakdown title="Languages" counts={insights.language_counts} />
+            <Breakdown title="Sentiment" counts={insights.sentiment_counts} />
           </div>
-        )}
-      </section>
-    );
-  }
-
-  return (
-    <section className="min-h-75 max-w-190 rounded-[11px] border border-[#ededf3] bg-white p-8 shadow-sm lg:p-10.5">
-      <div className="flex h-14.5 w-14.5 items-center justify-center rounded-xl bg-[#f0edff] text-[#7357ef]">
-        <Icon name={icons[active] ?? "layers"} size={28} />
-      </div>
-      <h2 className="mt-5.5 text-xl font-bold">{active}</h2>
-      <p className="mb-6 max-w-140 text-[13px] leading-7 text-[#85859b]">
-        {copy[active]}
-      </p>
-      <button
-        type="button"
-        className="flex items-center gap-2 rounded-lg bg-[#7357ef] px-3 py-2.5 text-xs font-bold text-white"
-      >
-        Get started <Icon name="arrow" size={15} />
-      </button>
+        </>
+      )}
+      {active === "Entity explorer" && (
+        <div className="space-y-2">
+          {entities.map((entity) => (
+            <div
+              key={`${entity.documentId}-${entity.start}-${entity.end}`}
+              className="flex justify-between gap-3 rounded-lg bg-[#f8f7fd] p-3 text-xs"
+            >
+              <span>
+                <strong>{entity.text}</strong>
+                <span className="ml-2 text-[#77768b]">{entity.title}</span>
+              </span>
+              <span className="text-violet-700">{entity.label}</span>
+            </div>
+          ))}
+          {!loading && !entities.length && (
+            <p className="text-sm text-[#77768b]">No entities found.</p>
+          )}
+        </div>
+      )}
+      {selected && (
+        <div className="border-t border-[#ededf3] pt-5">
+          <button
+            type="button"
+            onClick={() => setSelected(null)}
+            className="mb-4 text-xs text-violet-700"
+          >
+            Close document
+          </button>
+          <AnalysisResults key={selected.id} result={selected} />
+        </div>
+      )}
     </section>
   );
 }

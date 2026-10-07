@@ -1,20 +1,51 @@
 from unittest import TestCase
-from unittest.mock import Mock
+
+import spacy
 
 from app.services.nlp_service import NLPService
 from app.services.writing_service import WritingService
 
 
 class WritingServiceTests(TestCase):
-    def test_feedback_rules(self):
-        nlp = Mock(spec=NLPService)
-        nlp.sentences.return_value = ["this is teh test"]
-        result = WritingService(nlp).feedback("this is teh test")
-        self.assertEqual(result["issue_count"], 3)
-        self.assertTrue(any("'the'" in issue["message"] for issue in result["issues"]))
+    @classmethod
+    def setUpClass(cls):
+        nlp = NLPService()
+        nlp.nlp = spacy.blank("en")
+        nlp.nlp.add_pipe("sentencizer")
+        cls.service = WritingService(nlp)
 
-    def test_completion_uses_last_word(self):
-        service = WritingService(Mock(spec=NLPService))
-        self.assertIn(
-            "we should consider", service.autocomplete("Today we")["suggestions"]
+    def test_feedback_rules_have_correct_offsets_and_replacements(self):
+        text = "this is teh test"
+        result = self.service.feedback(text)
+        self.assertEqual(result["issue_count"], 3)
+        typo = next(issue for issue in result["issues"] if issue["type"] == "typo")
+        self.assertEqual(text[typo["start"] : typo["end"]], "teh")
+        self.assertEqual(typo["replacement"], "the")
+        punctuation = next(
+            issue for issue in result["issues"] if issue["replacement"] == "."
         )
+        self.assertEqual(punctuation["start"], len(text))
+
+    def test_repeated_typo_occurrences_and_word_boundaries(self):
+        result = self.service.feedback("Teh teh test.")
+        self.assertEqual(
+            len([issue for issue in result["issues"] if issue["type"] == "typo"]), 2
+        )
+        self.assertFalse(
+            any(
+                issue["type"] == "typo"
+                for issue in self.service.feedback("The theorem is clear.")["issues"]
+            )
+        )
+
+    def test_completion_uses_workspace_context_without_repeating_last_word(self):
+        result = self.service.autocomplete(
+            "Today we ", [{"text": "Today we build language tools."}]
+        )
+        self.assertIn("build language tools", result["suggestions"])
+        self.assertEqual(result["source"], "workspace n-grams")
+
+    def test_prefix_completion_and_empty_context(self):
+        self.assertEqual(self.service.autocomplete("")["suggestions"], [])
+        self.assertTrue(self.service.autocomplete("analyz")["suggestions"])
+        self.assertEqual(self.service.autocomplete("this")["suggestions"], [])

@@ -10,14 +10,21 @@ from app.services.nlp_service import NLPService
 class DocumentServiceTests(TestCase):
     def test_create_stores_analysis_and_aggregates_it(self):
         nlp = Mock(spec=NLPService)
-        document = {"id": "demo", "word_count": 4, "entities": [{"text": "London"}]}
+        document = {
+            "id": "demo",
+            "word_count": 4,
+            "entities": [{"text": "London", "label": "GPE"}],
+        }
         nlp.analyze.return_value = document
         service = DocumentService(DocumentRepository(), nlp)
         self.assertEqual(service.create("Input text", "Title"), document)
         nlp.analyze.assert_called_once_with("Input text", "Title")
         self.assertEqual(service.get("demo"), document)
         self.assertEqual(
-            service.insights(),
+            {
+                key: service.insights()[key]
+                for key in ("total_documents", "total_words", "total_entities")
+            },
             {
                 "total_documents": 1,
                 "total_words": 4,

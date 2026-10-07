@@ -5,100 +5,102 @@ import type {
   Insights,
   ModelInfo,
   PlagiarismResult,
+  SearchResult,
   SentimentResult,
   SummaryResult,
   WritingFeedbackResult,
 } from "@/types/analysis";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
-// const BACKEND_START_COMMAND = "uv run uvicorn app.main:app --reload";
+const API_URL = (
+  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"
+).replace(/\/$/, "");
 
-function backendUnavailableError() {
-  return new Error(`Backend is not running.`);
-}
-
-async function getJson<T>(path: string): Promise<T> {
-  let response: Response;
-  try {
-    response = await fetch(`${API_URL}${path}`);
-  } catch {
-    throw backendUnavailableError();
-  }
-  if (!response.ok) throw new Error(await getErrorMessage(response));
-  return (await response.json()) as T;
-}
-
-async function getErrorMessage(response: Response) {
-  try {
-    const body = (await response.json()) as { detail?: string };
-    if (body.detail) return body.detail;
-  } catch {
-    // Use the status when the API response is not JSON.
-  }
-  return `Backend request failed (${response.status}).`;
-}
-
-async function postJson<T>(path: string, text: string, title?: string) {
+async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   let response: Response;
   try {
     response = await fetch(`${API_URL}${path}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text, ...(title ? { title } : {}) }),
+      ...options,
+      cache: "no-store",
     });
-  } catch {
-    throw backendUnavailableError();
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") throw error;
+    throw new Error(
+      `Cannot reach the backend at ${API_URL}. Start the backend and check its CORS settings.`,
+    );
   }
-  if (!response.ok) throw new Error(await getErrorMessage(response));
+  if (!response.ok) {
+    let message = `Backend request failed (${response.status}).`;
+    try {
+      const body = (await response.json()) as {
+        detail?: string | Array<{ msg: string; loc: Array<string | number> }>;
+      };
+      if (typeof body.detail === "string") message = body.detail;
+      else if (Array.isArray(body.detail))
+        message = body.detail
+          .map((item) => `${item.loc.slice(1).join(".")}: ${item.msg}`)
+          .join("; ");
+    } catch {
+      /* Keep the HTTP status if no JSON error is available. */
+    }
+    throw new Error(message);
+  }
+  if (response.status === 204) return undefined as T;
   return (await response.json()) as T;
 }
-
-export function getHealth() {
-  return getJson<HealthResult>("/health");
+function post<T>(path: string, payload: object, signal?: AbortSignal) {
+  return request<T>(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+    signal,
+  });
 }
-
-export async function analyzeText(text: string, title: string) {
-  return postJson<AnalysisResult>("/analysis", text, title || undefined);
+export function getHealth(signal?: AbortSignal) {
+  return request<HealthResult>("/health", { signal });
 }
-
-export async function runTextTool(
+export function analyzeText(text: string, title: string, signal?: AbortSignal) {
+  return post<AnalysisResult>(
+    "/analysis",
+    { text, title: title || undefined },
+    signal,
+  );
+}
+export function runTextTool(
   path: "sentiment" | "summary" | "plagiarism",
   text: string,
+  sentenceLimit = 3,
+  signal?: AbortSignal,
 ) {
   if (path === "sentiment")
-    return postJson<SentimentResult>("/sentiment", text);
-  if (path === "summary") return postJson<SummaryResult>("/summary", text);
-  return postJson<PlagiarismResult>("/plagiarism", text);
+    return post<SentimentResult>("/sentiment", { text }, signal);
+  if (path === "summary")
+    return post<SummaryResult>(
+      "/summary",
+      { text, sentence_limit: sentenceLimit },
+      signal,
+    );
+  return post<PlagiarismResult>("/plagiarism", { text }, signal);
 }
-
-export async function getWritingFeedback(text: string) {
-  return postJson<WritingFeedbackResult>("/writing-feedback", text);
+export function getWritingFeedback(text: string, signal?: AbortSignal) {
+  return post<WritingFeedbackResult>("/writing-feedback", { text }, signal);
 }
-
-export async function getAutocomplete(text: string) {
-  return postJson<AutocompleteResult>("/autocomplete", text);
+export function getAutocomplete(text: string, signal?: AbortSignal) {
+  return post<AutocompleteResult>("/autocomplete", { text }, signal);
 }
-
-export function getDocuments() {
-  return getJson<AnalysisResult[]>("/documents");
+export function getDocuments(signal?: AbortSignal) {
+  return request<AnalysisResult[]>("/documents", { signal });
 }
-
-export function getInsights() {
-  return getJson<Insights>("/insights");
+export function getInsights(signal?: AbortSignal) {
+  return request<Insights>("/insights", { signal });
 }
-
-export function getModels() {
-  return getJson<ModelInfo[]>("/models");
+export function getModels(signal?: AbortSignal) {
+  return request<ModelInfo[]>("/models", { signal });
 }
-
-export async function deleteDocument(id: string) {
-  let response: Response;
-  try {
-    response = await fetch(`${API_URL}/documents/${encodeURIComponent(id)}`, {
-      method: "DELETE",
-    });
-  } catch {
-    throw backendUnavailableError();
-  }
-  if (!response.ok) throw new Error(await getErrorMessage(response));
+export function searchDocuments(query: string, signal?: AbortSignal) {
+  return post<SearchResult>("/search", { query }, signal);
+}
+export function deleteDocument(id: string) {
+  return request<void>(`/documents/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
 }

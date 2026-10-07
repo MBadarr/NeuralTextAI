@@ -11,4 +11,10 @@ router = APIRouter(tags=["system"])
 
 @router.get("/health")
 async def health(nlp: Annotated[NLPService, Depends(get_nlp_service)]):
-    return {"status": "ok", "service": settings.app_name, "model": nlp.model_name}
+    return {
+        "status": "ok",
+        "service": settings.app_name,
+        "model": nlp.model_name,
+        "trained": nlp.model_name != "en_blank",
+        "storage": "SQLite",
+    }

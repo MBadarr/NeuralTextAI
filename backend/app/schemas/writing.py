@@ -12,12 +12,15 @@ class WritingIssue(BaseModel):
     message: str
     start: int
     end: int
+    replacement: str | None = None
 
 
 class WritingFeedbackResponse(BaseModel):
     issues: list[WritingIssue]
     issue_count: int
+    warnings: list[str] = []
 
 
 class AutocompleteResponse(BaseModel):
     suggestions: list[str]
+    source: str = "workspace n-grams"
