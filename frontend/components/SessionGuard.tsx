@@ -2,7 +2,9 @@
 
 import { useRouter } from "next/navigation";
 import { type ReactNode, useEffect, useState } from "react";
+import { LoadingIndicator } from "@/components/LoadingIndicator";
 import { authClient } from "@/lib/auth-client";
+import { authFallbackClass, authSubmitClass } from "@/lib/auth-styles";
 import { useWorkspaceStore } from "@/lib/workspace-store";
 
 export function SessionGuard({ children }: { children: ReactNode }) {
@@ -37,12 +39,12 @@ export function SessionGuard({ children }: { children: ReactNode }) {
   }, [refetch]);
   if (error)
     return (
-      <main className="auth-fallback">
+      <main className={authFallbackClass}>
         <h1>Session check unavailable</h1>
         <p>We couldn’t confirm your session. Please retry.</p>
         <button
           type="button"
-          className="auth-submit"
+          className={authSubmitClass}
           onClick={() => {
             void refetch();
           }}
@@ -52,10 +54,6 @@ export function SessionGuard({ children }: { children: ReactNode }) {
       </main>
     );
   if (isPending || !data?.user.emailVerified || hydratedUser !== userId)
-    return (
-      <main className="auth-fallback">
-        <output>Opening your workspace…</output>
-      </main>
-    );
+    return <LoadingIndicator fullScreen label="Loading workspace" />;
   return children;
 }

@@ -29,9 +29,9 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       data-theme={theme}
       suppressHydrationWarning
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased scheme-light dark:scheme-dark`}
     >
-      <body className="min-h-full flex flex-col">
+      <body className="flex min-h-full flex-col bg-workspace-bg text-workspace-text selection:bg-workspace-highlight selection:text-workspace-text [&_input]:accent-workspace-primary [&_textarea]:accent-workspace-primary [&_select]:accent-workspace-primary [&_input]:placeholder:text-workspace-muted [&_textarea]:placeholder:text-workspace-muted **:focus-visible:outline-2 **:focus-visible:outline-workspace-accent **:focus-visible:outline-offset-3 motion-reduce:**:animate-none motion-reduce:**:transition-none motion-reduce:**:scroll-auto">
         <Script id="theme-initialization" strategy="beforeInteractive">
           {`if(document.documentElement.dataset.theme==='system'){document.documentElement.dataset.theme=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'}`}
         </Script>

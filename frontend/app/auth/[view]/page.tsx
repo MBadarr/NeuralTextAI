@@ -8,6 +8,8 @@ const titles = {
   "sign-up": "Create account",
   verify: "Verify email",
   callback: "Connecting",
+  "forgot-password": "Forgot password",
+  "reset-password": "Reset password",
 };
 
 export async function generateMetadata({
@@ -31,6 +33,7 @@ export default async function AuthPage({
     error?: string;
     verified?: string;
     password?: string;
+    reset?: string;
   }>;
 }) {
   const { view } = await params;
@@ -38,6 +41,8 @@ export default async function AuthPage({
   const query = await searchParams;
   // Remove fields from any legacy GET form submission; current forms only use POST.
   if (query.password !== undefined) redirect(`/auth/${view}`);
+  if (view === "forgot-password" || view === "reset-password")
+    return <AuthScreen key={view} view={view} />;
   const { data: session, error } = await readSession();
   if (error)
     throw new Error(
@@ -50,9 +55,11 @@ export default async function AuthPage({
   if (session?.user.emailVerified) redirect("/");
   return (
     <AuthScreen
+      key={view}
       view={view as AuthView}
       callbackError={query.error === "oauth"}
       verified={query.verified === "1"}
+      passwordReset={query.reset === "1"}
       initialEmail={view === "verify" ? session?.user.email : undefined}
     />
   );

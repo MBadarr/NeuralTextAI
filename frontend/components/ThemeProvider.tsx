@@ -51,7 +51,7 @@ export function ThemeToggle() {
   return (
     <button
       type="button"
-      className="theme-toggle"
+      className="inline-flex cursor-pointer items-center gap-2 rounded-[9px] border border-workspace-border bg-workspace-surface px-2.75 py-2 text-[11px] text-workspace-muted"
       aria-label={`Color theme: ${theme}. Change color theme`}
       onClick={() =>
         setTheme(
@@ -59,7 +59,7 @@ export function ThemeToggle() {
         )
       }
     >
-      <span aria-hidden="true">
+      <span className="text-base leading-none" aria-hidden="true">
         {theme === "dark" ? "☾" : theme === "light" ? "☀" : "◐"}
       </span>
       <span>

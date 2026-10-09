@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { AnalysisResults } from "@/components/AnalysisResults";
+import { LoadingIndicator } from "@/components/LoadingIndicator";
 import { TextAnalyzer } from "@/components/TextAnalyzer";
 import { TextTool, type ToolName } from "@/components/TextTool";
 import {
@@ -52,12 +53,12 @@ function Breakdown({
             <span>{label}</span>
             <strong>{value}</strong>
           </div>
-          <div className="h-2 rounded bg-workspace-accent-soft">
-            <div
-              className="h-2 rounded bg-workspace-accent-soft0"
-              style={{ width: `${(value / max) * 100}%` }}
-            />
-          </div>
+          <progress
+            value={value}
+            max={max}
+            aria-label={`${title}: ${label}`}
+            className="block h-2 w-full overflow-hidden rounded bg-workspace-accent-soft [&::-webkit-progress-bar]:bg-workspace-accent-soft [&::-webkit-progress-value]:bg-workspace-accent [&::-moz-progress-bar]:bg-workspace-accent"
+          />
         </div>
       ))}
       {!Object.keys(counts).length && (
@@ -180,9 +181,7 @@ export function FeaturePage({ active }: { active: string }) {
           {error}
         </p>
       )}
-      {loading && (
-        <p className="text-sm text-workspace-muted">Loading workspace…</p>
-      )}
+      {loading && <LoadingIndicator label="Loading workspace" />}
       {active === "Documents" && (
         <>
           <p className="text-xs text-workspace-muted">

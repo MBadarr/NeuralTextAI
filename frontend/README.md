@@ -41,6 +41,8 @@ when there is no session cookie; expired sessions return to sign-in.
 - `/auth/sign-in`: password login, Google OAuth, or passwordless email OTP.
 - `/auth/verify`: code entry, resend cooldown, and recovery after refresh.
 - `/auth/callback`: server-validated OAuth completion.
+- `/auth/forgot-password`: request a Neon password-reset email code.
+- `/auth/reset-password`: email, six-digit reset code, new password, and confirmation.
 - `/`: server-protected workspace; unverified users return to verification.
 
 Neon's SDK manages HTTP-only session cookies and renewal. Authentication is
@@ -54,6 +56,17 @@ rendering. Server Components use a read-only SDK context for live session
 checks, since Next.js prohibits cookie writes during server rendering. The OTP
 page remains public so accounts without a session can verify their email.
 
+Password recovery uses `emailOtp.requestPasswordReset` and
+`emailOtp.resetPassword` through the same-origin Neon Auth handler. Recovery
+pages remain available without a session. Only the pending email and resend
+timestamp are stored; reset codes and passwords are never persisted. Resends
+have a 60-second UI cooldown, with provider expiry and attempt limits enforced
+by Neon. Invalid/expired codes remain recoverable by requesting a fresh code.
+Successful recovery returns to sign-in with a confirmation message.
+
+Workspace session checks and route transitions show a themed spinner with a
+screen-reader status label. The spinner respects reduced-motion preferences.
+
 Ensure the deployed app origin is a trusted domain in Neon Auth, Google is
 enabled, and email verification uses **verification codes**. Enable required
 email verification in Neon as well as the app's verified-email gate. Provider
@@ -66,6 +79,17 @@ color tokens. The theme preference uses a
 cookie so the server renders the selected theme; system mode follows OS changes.
 All forms include labels, autocomplete hints, keyboard focus, pending states,
 and announced errors. Verification can request a fresh code if delivery fails.
+
+Authentication and recovery forms validate email, name, 8–128 character passwords,
+six-digit codes, and reset-password confirmation before contacting Neon. Password
+and confirmation feedback updates while typing; other fields validate on blur
+and submission. Errors are linked to their fields for assistive technology.
+The forgot-password link sits above the sign-in button, aligned to the right.
+
+All component styling uses Tailwind utilities, including auth screens, loaders,
+focus states, reduced motion, and responsive layouts. `globals.css` contains only
+the Tailwind import, data-attribute dark variant, and light/dark color tokens;
+the root uses Tailwind color-scheme utilities to resolve those tokens.
 
 ## Frontend structure
 

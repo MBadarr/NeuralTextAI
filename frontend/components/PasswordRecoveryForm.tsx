@@ -1,0 +1,360 @@
+"use client";
+
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { type FormEvent, useEffect, useRef, useState } from "react";
+import { AuthInput } from "@/components/AuthInput";
+import { FieldError } from "@/components/FieldError";
+import { LoadingIndicator } from "@/components/LoadingIndicator";
+import { authClient } from "@/lib/auth-client";
+import {
+  authErrorClass,
+  authFieldClass,
+  authMessageClass,
+  authSubmitClass,
+} from "@/lib/auth-styles";
+import { useAuthValidation } from "@/lib/use-auth-validation";
+
+const recoveryKey = "neuraltext-password-recovery";
+const resendDelay = 60_000;
+type Recovery = { email: string; sentAt: number };
+
+function rememberRecovery(value: Recovery) {
+  try {
+    sessionStorage.setItem(recoveryKey, JSON.stringify(value));
+  } catch {
+    // The reset form also supports manually entering the email address.
+  }
+}
+
+export function PasswordRecoveryForm({
+  view,
+  ready,
+}: {
+  view: "forgot-password" | "reset-password";
+  ready: boolean;
+}) {
+  const router = useRouter();
+  const reset = view === "reset-password";
+  const validation = useAuthValidation(view);
+  const email = validation.values.email;
+  const setEmail = validation.setEmail;
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [cooldown, setCooldown] = useState(0);
+  const [showPassword, setShowPassword] = useState(false);
+  const errorRef = useRef<HTMLParagraphElement>(null);
+  const pendingRef = useRef(false);
+
+  useEffect(() => {
+    try {
+      const pending: unknown = JSON.parse(
+        sessionStorage.getItem(recoveryKey) || "null",
+      );
+      if (
+        pending &&
+        typeof pending === "object" &&
+        "email" in pending &&
+        typeof pending.email === "string"
+      ) {
+        setEmail(pending.email);
+        if (
+          "sentAt" in pending &&
+          typeof pending.sentAt === "number" &&
+          Number.isFinite(pending.sentAt)
+        )
+          setCooldown(
+            Math.min(
+              60,
+              Math.max(
+                0,
+                Math.ceil((pending.sentAt + resendDelay - Date.now()) / 1000),
+              ),
+            ),
+          );
+      }
+    } catch {
+      // Unavailable or malformed storage never blocks account recovery.
+    }
+  }, [setEmail]);
+  useEffect(() => {
+    if (!cooldown) return;
+    const timer = window.setTimeout(() => setCooldown(cooldown - 1), 1000);
+    return () => window.clearTimeout(timer);
+  }, [cooldown]);
+  useEffect(() => {
+    if (error) errorRef.current?.focus();
+  }, [error]);
+
+  async function run(action: () => Promise<void>) {
+    if (pendingRef.current) return;
+    pendingRef.current = true;
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      await action();
+    } catch (reason) {
+      setError(
+        reason instanceof Error
+          ? reason.message
+          : "Unable to complete this request. Please try again.",
+      );
+    } finally {
+      pendingRef.current = false;
+      setBusy(false);
+    }
+  }
+  function checkError(result: {
+    error?: { message?: string; code?: string; status?: number } | null;
+  }) {
+    if (!result.error) return;
+    if (result.error.status === 429)
+      throw new Error("Too many attempts. Please wait before trying again.");
+    if (
+      ["INVALID_OTP", "OTP_EXPIRED", "TOO_MANY_ATTEMPTS"].includes(
+        result.error.code || "",
+      )
+    )
+      throw new Error(
+        "This code is invalid or expired. Request a new code and try again.",
+      );
+    throw new Error(
+      result.error.message ||
+        "Unable to complete this request. Please try again.",
+    );
+  }
+  async function sendResetCode(targetEmail: string) {
+    // Use the dedicated password-reset OTP endpoint, never a sign-in OTP.
+    const result = await authClient.emailOtp.requestPasswordReset({
+      email: targetEmail,
+    });
+    if (result.error?.code !== "USER_NOT_FOUND") checkError(result);
+    rememberRecovery({ email: targetEmail, sentAt: Date.now() });
+    setCooldown(60);
+  }
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const fields = new FormData(form);
+    const invalid = validation.validate(fields);
+    if (invalid) {
+      setError(invalid);
+      return;
+    }
+    const targetEmail = String(fields.get("email") || "").trim();
+    await run(async () => {
+      if (!reset) {
+        if (cooldown > 0) return;
+        await sendResetCode(targetEmail);
+        router.push("/auth/reset-password");
+        return;
+      }
+      const password = String(fields.get("password") || "");
+      if (password.length < 8 || password.length > 128)
+        throw new Error("Use a password between 8 and 128 characters.");
+      if (password !== String(fields.get("confirmPassword") || ""))
+        throw new Error(
+          "Passwords do not match. Enter the same password in both fields.",
+        );
+      const otp = String(fields.get("otp") || "").trim();
+      if (!/^\d{6}$/.test(otp))
+        throw new Error("Enter the 6-digit reset code from your email.");
+      checkError(
+        await authClient.emailOtp.resetPassword({
+          email: targetEmail,
+          otp,
+          password,
+        }),
+      );
+      form.reset();
+      validation.clearPasswords();
+      try {
+        sessionStorage.removeItem(recoveryKey);
+      } catch {
+        /* Optional form state. */
+      }
+      router.replace("/auth/sign-in?reset=1");
+      router.refresh();
+    });
+  }
+
+  return (
+    <>
+      <form
+        method="post"
+        noValidate
+        onChange={() => setError("")}
+        className="[&>fieldset]:m-0 [&>fieldset]:flex [&>fieldset]:min-w-0 [&>fieldset]:flex-col [&>fieldset]:gap-4.75 [&>fieldset]:border-0 [&>fieldset]:p-0"
+        onSubmit={submit}
+        aria-busy={busy || !ready}
+      >
+        <fieldset disabled={busy || !ready}>
+          <div className={authFieldClass}>
+            <label htmlFor="recovery-email">Email address</label>
+            <AuthInput
+              id="recovery-email"
+              name="email"
+              {...validation.bind("email", "recovery-email")}
+              type="email"
+              autoComplete="email"
+              required
+              maxLength={254}
+              placeholder="you@example.com"
+            />
+            <FieldError
+              id="recovery-email-error"
+              message={validation.message("email")}
+            />
+          </div>
+          {reset && (
+            <>
+              <div className={authFieldClass}>
+                <label htmlFor="reset-otp">Reset code</label>
+                <AuthInput
+                  id="reset-otp"
+                  name="otp"
+                  {...validation.bind("otp", "reset-otp")}
+                  variant="otp"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  pattern="[0-9]{6}"
+                  minLength={6}
+                  maxLength={6}
+                  placeholder="000000"
+                  required
+                  aria-describedby="reset-otp-help reset-otp-error"
+                />
+                <small id="reset-otp-help">
+                  If an account exists for this email, a reset code is on its
+                  way. Check your spam folder too.
+                </small>
+                <FieldError
+                  id="reset-otp-error"
+                  message={validation.message("otp")}
+                />
+              </div>
+              <div className={authFieldClass}>
+                <label htmlFor="reset-password">New password</label>
+                <div className="relative [&>button]:absolute [&>button]:top-0 [&>button]:right-3.25 [&>button]:h-11.75 [&>button]:cursor-pointer [&>button]:text-[11px] [&>button]:font-semibold [&>button]:text-workspace-accent [&>button]:disabled:cursor-wait [&>button]:disabled:opacity-60">
+                  <AuthInput
+                    id="reset-password"
+                    name="password"
+                    {...validation.bind("password", "reset-password")}
+                    className="pr-16"
+                    type={showPassword ? "text" : "password"}
+                    autoComplete="new-password"
+                    minLength={8}
+                    maxLength={128}
+                    required
+                    placeholder="Create a strong password"
+                    aria-describedby="reset-password-help reset-password-error"
+                  />
+                  <button
+                    type="button"
+                    aria-label={
+                      showPassword ? "Hide password" : "Show password"
+                    }
+                    onClick={() => setShowPassword(!showPassword)}
+                  >
+                    {showPassword ? "Hide" : "Show"}
+                  </button>
+                </div>
+                <small id="reset-password-help">
+                  Use at least 8 characters.
+                </small>
+                <FieldError
+                  id="reset-password-error"
+                  message={validation.message("password")}
+                />
+              </div>
+              <div className={authFieldClass}>
+                <label htmlFor="confirm-password">Confirm new password</label>
+                <AuthInput
+                  id="confirm-password"
+                  name="confirmPassword"
+                  {...validation.bind("confirmPassword", "confirm-password")}
+                  type={showPassword ? "text" : "password"}
+                  autoComplete="new-password"
+                  minLength={8}
+                  maxLength={128}
+                  required
+                  placeholder="Enter your new password again"
+                />
+                <FieldError
+                  id="confirm-password-error"
+                  message={validation.message("confirmPassword")}
+                />
+              </div>
+            </>
+          )}
+        </fieldset>
+        {error && (
+          <p
+            className={authErrorClass}
+            role="alert"
+            ref={errorRef}
+            tabIndex={-1}
+          >
+            {error}
+          </p>
+        )}
+        {notice && <output className={authMessageClass}>{notice}</output>}
+        <button
+          className={authSubmitClass}
+          type="submit"
+          disabled={busy || !ready || (!reset && cooldown > 0)}
+        >
+          {busy || !ready ? (
+            <LoadingIndicator
+              label={reset ? "Resetting password" : "Sending reset code"}
+              compact
+            />
+          ) : reset ? (
+            "Reset password"
+          ) : cooldown > 0 ? (
+            `Send again in ${cooldown}s`
+          ) : (
+            "Send reset code"
+          )}
+        </button>
+      </form>
+      {reset && (
+        <p className="mt-6 text-center text-xs leading-[1.7] text-workspace-muted [&>a]:cursor-pointer [&>a]:font-semibold [&>a]:text-workspace-accent [&>button]:cursor-pointer [&>button]:font-semibold [&>button]:text-workspace-accent [&>button]:disabled:cursor-default [&>button]:disabled:opacity-60">
+          No code yet?{" "}
+          <button
+            type="button"
+            disabled={busy || !ready || cooldown > 0 || !email.trim()}
+            onClick={() => {
+              if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+                setError("Enter a valid email address first.");
+                return;
+              }
+              void run(async () => {
+                await sendResetCode(email.trim());
+                setNotice(
+                  "If an account exists for this email, a new reset code is on its way.",
+                );
+              });
+            }}
+          >
+            {cooldown > 0 ? `Resend in ${cooldown}s` : "Send a new reset code"}
+          </button>
+        </p>
+      )}
+      {!reset && (
+        <p className="mt-6 text-center text-xs leading-[1.7] text-workspace-muted [&>a]:cursor-pointer [&>a]:font-semibold [&>a]:text-workspace-accent [&>button]:cursor-pointer [&>button]:font-semibold [&>button]:text-workspace-accent [&>button]:disabled:cursor-default [&>button]:disabled:opacity-60">
+          Already have a reset code?{" "}
+          <Link href="/auth/reset-password">Reset your password</Link>
+        </p>
+      )}
+      <Link
+        className="mx-auto mt-4.25 block w-fit cursor-pointer text-center text-[11px] text-workspace-accent disabled:cursor-default disabled:opacity-60"
+        href="/auth/sign-in"
+      >
+        ← Back to sign in
+      </Link>
+    </>
+  );
+}

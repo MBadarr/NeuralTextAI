@@ -44,6 +44,58 @@ afterEach(() => {
 });
 
 describe("Neon server integration", () => {
+  it.each([
+    ["request-password-reset", { email: "test@example.com" }],
+    [
+      "reset-password",
+      {
+        email: "test@example.com",
+        otp: "123456",
+        password: "fixture-new-password",
+      },
+    ],
+  ])("forwards the recovery %s endpoint to Neon without a session", async (endpoint, body) => {
+    const fetchMock = vi.fn<typeof fetch>(async () =>
+      Response.json({ success: true }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const { POST } = await import("@/app/api/auth/[...path]/route");
+    const response = await POST(
+      new NextRequest(`https://app.example/api/auth/email-otp/${endpoint}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          origin: "https://app.example",
+        },
+        body: JSON.stringify(body),
+      }),
+      { params: Promise.resolve({ path: ["email-otp", endpoint] }) },
+    );
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ success: true });
+    expect(String(fetchMock.mock.calls[0][0])).toBe(
+      `https://auth.example/neondb/auth/email-otp/${endpoint}`,
+    );
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toEqual(body);
+  });
+
+  it.each([
+    "forgot-password",
+    "reset-password",
+  ])("keeps %s accessible with a stale session during a session-service outage", async (view) => {
+    context.cookie = "__Secure-neon-auth.session_token=expired-fixture";
+    const fetchMock = vi.fn<typeof fetch>(async () =>
+      Response.json({ message: "Unavailable" }, { status: 503 }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const { default: AuthPage } = await import("@/app/auth/[view]/page");
+    const page = await AuthPage({
+      params: Promise.resolve({ view }),
+      searchParams: Promise.resolve({}),
+    });
+    expect(page.props.view).toBe(view);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
   it("keeps public auth pages available when no session cookie exists", async () => {
     const fetchMock = vi.fn<typeof fetch>(async () =>
       Response.json({ message: "Unavailable" }, { status: 503 }),

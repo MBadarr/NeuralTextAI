@@ -5,6 +5,7 @@ import { Icon } from "@/components/Icon";
 import { ThemeToggle } from "@/components/ThemeProvider";
 import { getHealth } from "@/lib/api";
 import { authClient } from "@/lib/auth-client";
+import { authErrorClass } from "@/lib/auth-styles";
 import { useWorkspaceStore } from "@/lib/workspace-store";
 
 export function Topbar() {
@@ -91,7 +92,7 @@ export function Topbar() {
           {signOutError && (
             <p
               role="alert"
-              className="auth-message auth-error absolute right-0 top-8 w-64"
+              className={`${authErrorClass} absolute right-0 top-8 w-64`}
             >
               {signOutError}
             </p>
