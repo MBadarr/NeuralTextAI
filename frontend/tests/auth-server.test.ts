@@ -44,6 +44,30 @@ afterEach(() => {
 });
 
 describe("Neon server integration", () => {
+  it("keeps public auth pages available when no session cookie exists", async () => {
+    const fetchMock = vi.fn<typeof fetch>(async () =>
+      Response.json({ message: "Unavailable" }, { status: 503 }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const { readSession } = await import("@/lib/auth-server");
+    expect(await readSession()).toEqual({ data: null, error: null });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("treats expired sessions as signed out while retaining provider outages as errors", async () => {
+    context.cookie = "__Secure-neon-auth.session_token=expired-fixture";
+    const fetchMock = vi.fn<typeof fetch>(async () =>
+      Response.json({ message: "Expired session" }, { status: 401 }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const { readSession } = await import("@/lib/auth-server");
+    expect(await readSession()).toEqual({ data: null, error: null });
+    fetchMock.mockImplementation(async () =>
+      Response.json({ message: "Unavailable" }, { status: 503 }),
+    );
+    expect((await readSession()).error?.status).toBe(503);
+  });
+
   it("exchanges the Google callback verifier and persists SDK session cookies", async () => {
     const fetchMock = vi.fn<typeof fetch>(async () =>
       Response.json(session, {

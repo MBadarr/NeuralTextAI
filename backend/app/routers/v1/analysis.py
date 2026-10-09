@@ -33,6 +33,16 @@ def summary(payload: SummaryRequest, nlp: NLPDependency):
     return nlp.summary(payload.text, payload.sentence_limit)
 
 
+@router.post("/intent")
+def intent(payload: AnalysisRequest, nlp: NLPDependency):
+    return nlp.intent(payload.text)
+
+
+@router.post("/emotions")
+def emotions(payload: AnalysisRequest, nlp: NLPDependency):
+    return nlp.emotions(payload.text)
+
+
 @router.post("/keywords")
 def keywords(payload: AnalysisRequest, nlp: NLPDependency):
     return nlp.keywords(payload.text)

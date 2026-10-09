@@ -6,6 +6,7 @@ from pydantic import BaseModel
 class TokenResponse(BaseModel):
     text: str
     lemma: str
+    stem: str = ""
     part_of_speech: str
     is_stop: bool
     dependency: str = "Unavailable"
@@ -40,6 +41,8 @@ class DocumentResponse(BaseModel):
     word_frequencies: list[dict] = []
     readability: dict | None = None
     sentiment: dict = {}
+    intent: dict | None = None
+    emotions: dict | None = None
     summary: str = ""
     processing_time_ms: float = 0
     model: str = ""

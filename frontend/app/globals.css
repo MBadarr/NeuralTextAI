@@ -1,6 +1,50 @@
 @import "tailwindcss";
 
+@theme inline {
+  --color-workspace-bg: var(--workspace-bg);
+  --color-workspace-surface: var(--workspace-surface);
+  --color-workspace-subtle: var(--workspace-subtle);
+  --color-workspace-hover: var(--workspace-hover);
+  --color-workspace-text: var(--workspace-text);
+  --color-workspace-muted: var(--workspace-muted);
+  --color-workspace-border: var(--workspace-border);
+  --color-workspace-primary: var(--workspace-primary);
+  --color-workspace-on-primary: #fff;
+  --color-workspace-accent: var(--workspace-accent);
+  --color-workspace-accent-soft: var(--workspace-accent-soft);
+  --color-workspace-accent-border: var(--workspace-accent-border);
+  --color-workspace-highlight: var(--workspace-highlight);
+  --color-workspace-info: var(--workspace-info);
+  --color-workspace-info-soft: var(--workspace-info-soft);
+  --color-workspace-success: var(--workspace-success);
+  --color-workspace-success-soft: var(--workspace-success-soft);
+  --color-workspace-warning: var(--workspace-warning);
+  --color-workspace-warning-soft: var(--workspace-warning-soft);
+  --color-workspace-danger: var(--workspace-danger);
+  --color-workspace-danger-soft: var(--workspace-danger-soft);
+}
+
 :root {
+  --workspace-bg: #f8f8fc;
+  --workspace-surface: #fff;
+  --workspace-subtle: #f8f7fd;
+  --workspace-hover: #f0edff;
+  --workspace-text: #15142b;
+  --workspace-muted: #69657d;
+  --workspace-border: #e6e5ee;
+  --workspace-primary: #7357ef;
+  --workspace-accent: #654adf;
+  --workspace-accent-soft: #efecff;
+  --workspace-accent-border: #ded8ff;
+  --workspace-highlight: #e5deff;
+  --workspace-info: #21699f;
+  --workspace-info-soft: #e7f3ff;
+  --workspace-success: #217849;
+  --workspace-success-soft: #e7f8ef;
+  --workspace-warning: #885817;
+  --workspace-warning-soft: #fff2df;
+  --workspace-danger: #b4233d;
+  --workspace-danger-soft: #fff1f2;
   color-scheme: light;
   --auth-bg: #f8f8fc;
   --auth-surface: #fff;
@@ -13,6 +57,26 @@
   --auth-error: #b4233d;
 }
 [data-theme="dark"] {
+  --workspace-bg: #111019;
+  --workspace-surface: #1b1927;
+  --workspace-subtle: #242131;
+  --workspace-hover: #302845;
+  --workspace-text: #f0edf9;
+  --workspace-muted: #b0a9c6;
+  --workspace-border: #3b354e;
+  --workspace-primary: #7357ef;
+  --workspace-accent: #b6a2ff;
+  --workspace-accent-soft: #2b2245;
+  --workspace-accent-border: #51406f;
+  --workspace-highlight: #43315f;
+  --workspace-info: #98caff;
+  --workspace-info-soft: #1c3047;
+  --workspace-success: #8be0b1;
+  --workspace-success-soft: #1c362c;
+  --workspace-warning: #f3cc89;
+  --workspace-warning-soft: #3b2d1c;
+  --workspace-danger: #ffa8b8;
+  --workspace-danger-soft: #3a1d29;
   color-scheme: dark;
   --auth-bg: #111019;
   --auth-surface: #1b1927;
@@ -26,6 +90,22 @@
 }
 body {
   background: var(--auth-bg);
+}
+.workspace-shell :is(input, textarea, select) {
+  color: var(--workspace-text);
+  accent-color: var(--workspace-primary);
+}
+.workspace-shell :is(input, textarea)::placeholder {
+  color: var(--workspace-muted);
+  opacity: 1;
+}
+.workspace-shell :focus-visible {
+  outline: 2px solid var(--workspace-accent);
+  outline-offset: 3px;
+}
+.workspace-shell ::selection {
+  background: var(--workspace-highlight);
+  color: var(--workspace-text);
 }
 .auth-shell {
   display: grid;

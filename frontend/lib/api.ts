@@ -1,6 +1,7 @@
 import type {
   AnalysisResult,
   AutocompleteResult,
+  ClassificationResult,
   HealthResult,
   Insights,
   ModelInfo,
@@ -66,11 +67,13 @@ export function analyzeText(text: string, title: string, signal?: AbortSignal) {
   );
 }
 export function runTextTool(
-  path: "sentiment" | "summary" | "plagiarism",
+  path: "sentiment" | "intent" | "emotions" | "summary" | "plagiarism",
   text: string,
   sentenceLimit = 3,
   signal?: AbortSignal,
 ) {
+  if (path === "intent" || path === "emotions")
+    return post<ClassificationResult>(`/${path}`, { text }, signal);
   if (path === "sentiment")
     return post<SentimentResult>("/sentiment", { text }, signal);
   if (path === "summary")

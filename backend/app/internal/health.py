@@ -16,5 +16,5 @@ async def health(nlp: Annotated[NLPService, Depends(get_nlp_service)]):
         "service": settings.app_name,
         "model": nlp.model_name,
         "trained": nlp.model_name != "en_blank",
-        "storage": "SQLite",
+        "storage": "Neon PostgreSQL",
     }

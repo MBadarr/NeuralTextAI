@@ -36,11 +36,12 @@ the frontend proxy; the response's `code` and backend warning identify the
 failure category without exposing tokens.
 
 Document creation, lists, reads, deletion, insights, search and plagiarism
-comparisons are scoped to the authenticated user. Existing document storage
-remains in SQLite; Neon manages authentication and sessions in PostgreSQL.
-The repository adds an indexed `owner_id` column without deleting existing
-data. Older documents have no owner and are hidden from authenticated users;
-an administrator must assign ownership explicitly if they should be recovered.
+comparisons are scoped to the authenticated user. Documents and analysis payloads persist in Neon PostgreSQL using the existing
+`DATABASE_URL`. Indexed owner-scoped queries prevent access to other users'
+documents. Records imported without an owner remain hidden until an
+administrator explicitly assigns ownership. Row-level security prevents
+non-owner database roles from directly reading the document table; server
+requests use the database owner role and enforce the signed-in owner in SQL.
 Object Storage integration is outside this authentication change.
 
 All endpoints use JSON. Analysis and writing endpoints accept:
@@ -59,7 +60,9 @@ All endpoints use JSON. Analysis and writing endpoints accept:
 | GET | `/insights` | Aggregate document, word, and entity totals |
 | GET | `/models` | Loaded model and pipeline components |
 | POST | `/sentiment` | VADER sentiment with polarity breakdown |
-| POST | `/summary` | Ranked extractive summary; optional `sentence_limit` (1–10) |
+| POST | `/intent` | Sentence-level English communication intent |
+| POST | `/emotions` | Six English emotion categories with negation and evidence |
+| POST | `/summary` | Ranked extractive summary; optional `sentence_limit` (1â€“10) |
 | POST | `/plagiarism` | Compare text with stored documents |
 | POST | `/writing-feedback` | Typos, structure, punctuation, and style issues |
 | POST | `/autocomplete` | Workspace n-gram and dictionary-prefix completions |
@@ -68,74 +71,100 @@ All endpoints use JSON. Analysis and writing endpoints accept:
 
 ## Structure
 
+### Intent, emotion, and stemming
+
+New `/analysis` results include `intent`, `emotions`, and a `stem` per alphabetic
+English token. `/sentiment` also includes the emotion result. These fields persist
+in the existing Neon JSON payload; older documents remain readable without a
+database migration. Re-analyze old text to populate the new fields.
+
+Intent identifies Question, Request, Complaint, Appreciation, and Statement per
+sentence (Mixed for different purposes). It combines English speech-act rules
+with similarity to curated examples using the installed spaCy static vectors.
+Without vectors, it explicitly reports rule-only classification. This is a
+general communication-purpose classifier, not domain-specific action extraction.
+Top-level intent scores are sentence counts; sentence scores are cosine similarities.
+
+Emotion detects Joy, Anger, Sadness, Fear, Surprise, and Disgust using a curated
+English lexicon, local negation, and intensity modifiers. Scores are weighted
+evidence counts, not probabilities. Negated evidence is retained but excluded
+from scores; absence of evidence is Neutral, not proof of an emotional state.
+This lightweight classifier can miss implicit feelings and misread sarcasm or
+quoted speech. Unsupported detected languages return Unsupported instead of an
+English prediction. Both tools are local and do not transmit text to another service.
+
+Stems use the official Snowball English algorithm (Porter2), separately from
+spaCy dictionary lemmas. Punctuation and detected non-English tokens have an
+empty stem. Stems may not be valid dictionary words.
+
 ```text
 backend/
-├── app/
-│   ├── __init__.py
-│   ├── main.py
-│   ├── dependencies.py
-│   ├── routers/
-│   │   ├── __init__.py
-│   │   └── v1/
-│   │       ├── __init__.py
-│   │       ├── router.py
-│   │       ├── analysis.py
-│   │       ├── documents.py
-│   │       └── writing.py
-│   ├── internal/
-│   │   ├── __init__.py
-│   │   ├── admin.py
-│   │   ├── health.py
-│   │   └── tasks.py
-│   ├── services/
-│   │   ├── __init__.py
-│   │   ├── nlp_service.py
-│   │   ├── document_service.py
-│   │   └── writing_service.py
-│   ├── repositories/
-│   │   ├── __init__.py
-│   │   └── document_repository.py
-│   ├── models/
-│   │   ├── __init__.py
-│   │   └── document.py
-│   ├── schemas/
-│   │   ├── __init__.py
-│   │   ├── analysis.py
-│   │   ├── document.py
-│   │   └── writing.py
-│   ├── core/
-│   │   ├── __init__.py
-│   │   ├── config.py
-│   │   ├── security.py
-│   │   ├── exceptions.py
-│   │   └── logging.py
-│   └── db/
-│       ├── __init__.py
-│       ├── session.py
-│       ├── base.py
-│       └── migrations/
-│           └── README.md
-├── tests/
-│   ├── __init__.py
-│   ├── controllers/
-│   │   ├── __init__.py
-│   │   ├── test_health.py
-│   │   └── v1/
-│   │       ├── __init__.py
-│   │       ├── test_analysis.py
-│   │       ├── test_nlp_features.py
-│   │       ├── test_documents.py
-│   │       └── test_writing.py
-│   ├── services/
-│   │   ├── __init__.py
-│   │   ├── test_nlp_service.py
-│   │   ├── test_document_service.py
-│   │   └── test_writing_service.py
-│   └── repositories/
-│       ├── __init__.py
-│       └── test_document_repository.py
-├── pyproject.toml
-└── README.md
+â”œâ”€â”€ app/
+â”‚   â”œâ”€â”€ __init__.py
+â”‚   â”œâ”€â”€ main.py
+â”‚   â”œâ”€â”€ dependencies.py
+â”‚   â”œâ”€â”€ routers/
+â”‚   â”‚   â”œâ”€â”€ __init__.py
+â”‚   â”‚   â””â”€â”€ v1/
+â”‚   â”‚       â”œâ”€â”€ __init__.py
+â”‚   â”‚       â”œâ”€â”€ router.py
+â”‚   â”‚       â”œâ”€â”€ analysis.py
+â”‚   â”‚       â”œâ”€â”€ documents.py
+â”‚   â”‚       â””â”€â”€ writing.py
+â”‚   â”œâ”€â”€ internal/
+â”‚   â”‚   â”œâ”€â”€ __init__.py
+â”‚   â”‚   â”œâ”€â”€ admin.py
+â”‚   â”‚   â”œâ”€â”€ health.py
+â”‚   â”‚   â””â”€â”€ tasks.py
+â”‚   â”œâ”€â”€ services/
+â”‚   â”‚   â”œâ”€â”€ __init__.py
+â”‚   â”‚   â”œâ”€â”€ nlp_service.py
+â”‚   â”‚   â”œâ”€â”€ document_service.py
+â”‚   â”‚   â””â”€â”€ writing_service.py
+â”‚   â”œâ”€â”€ repositories/
+â”‚   â”‚   â”œâ”€â”€ __init__.py
+â”‚   â”‚   â””â”€â”€ document_repository.py
+â”‚   â”œâ”€â”€ models/
+â”‚   â”‚   â”œâ”€â”€ __init__.py
+â”‚   â”‚   â””â”€â”€ document.py
+â”‚   â”œâ”€â”€ schemas/
+â”‚   â”‚   â”œâ”€â”€ __init__.py
+â”‚   â”‚   â”œâ”€â”€ analysis.py
+â”‚   â”‚   â”œâ”€â”€ document.py
+â”‚   â”‚   â””â”€â”€ writing.py
+â”‚   â”œâ”€â”€ core/
+â”‚   â”‚   â”œâ”€â”€ __init__.py
+â”‚   â”‚   â”œâ”€â”€ config.py
+â”‚   â”‚   â”œâ”€â”€ security.py
+â”‚   â”‚   â”œâ”€â”€ exceptions.py
+â”‚   â”‚   â””â”€â”€ logging.py
+â”‚   â””â”€â”€ db/
+â”‚       â”œâ”€â”€ __init__.py
+â”‚       â”œâ”€â”€ session.py
+â”‚       â”œâ”€â”€ base.py
+â”‚       â””â”€â”€ migrations/
+â”‚           â””â”€â”€ README.md
+â”œâ”€â”€ tests/
+â”‚   â”œâ”€â”€ __init__.py
+â”‚   â”œâ”€â”€ controllers/
+â”‚   â”‚   â”œâ”€â”€ __init__.py
+â”‚   â”‚   â”œâ”€â”€ test_health.py
+â”‚   â”‚   â””â”€â”€ v1/
+â”‚   â”‚       â”œâ”€â”€ __init__.py
+â”‚   â”‚       â”œâ”€â”€ test_analysis.py
+â”‚   â”‚       â”œâ”€â”€ test_nlp_features.py
+â”‚   â”‚       â”œâ”€â”€ test_documents.py
+â”‚   â”‚       â””â”€â”€ test_writing.py
+â”‚   â”œâ”€â”€ services/
+â”‚   â”‚   â”œâ”€â”€ __init__.py
+â”‚   â”‚   â”œâ”€â”€ test_nlp_service.py
+â”‚   â”‚   â”œâ”€â”€ test_document_service.py
+â”‚   â”‚   â””â”€â”€ test_writing_service.py
+â”‚   â””â”€â”€ repositories/
+â”‚       â”œâ”€â”€ __init__.py
+â”‚       â””â”€â”€ test_document_repository.py
+â”œâ”€â”€ pyproject.toml
+â””â”€â”€ README.md
 ```
 
 `routers/v1/router.py` assembles the public API. Its routes retain their existing
@@ -143,22 +172,25 @@ paths (for example `/analysis`, not `/v1/analysis`) so the frontend remains
 compatible. `internal/health.py` owns `/health`; admin and tasks remain future
 extension points with no exposed routes.
 
-Request flow: **controller → service → repository** for documents, or
-**controller → NLP/writing service** for text tools. `dependencies.py` wires
-services and the shared SQLite repository using FastAPI dependencies, which
+Request flow: **controller â†’ service â†’ repository** for documents, or
+**controller â†’ NLP/writing service** for text tools. `dependencies.py` wires
+services and the shared PostgreSQL repository using FastAPI dependencies, which
 tests can override. Services raise domain exceptions; `main.py` converts missing
 documents into HTTP 404 responses.
 
 `models/document.py` contains typed domain dictionaries, while `schemas/` holds
-Pydantic request/response models. `db/base.py` exposes SQLModel metadata and
-`db/session.py` manages SQLite connections. The repository creates its document
-table when initialized. `db/base.py` reserves SQLModel metadata for future ORM
-migrations; the current adapter uses Python’s standard-library SQLite driver.
+Pydantic request/response models. `db/session.py` owns a bounded Psycopg
+connection pool; transactions commit on success and roll back on failure.
+`db/base.py` applies versioned SQL files from `db/migrations` during startup,
+under a PostgreSQL advisory lock so concurrent app instances migrate safely.
+Connections are checked before reuse and closed at shutdown. Prepared statements
+are disabled for compatibility with Neon's pooled connection endpoint.
 
-Backend `.env` settings include `FRONTEND_URL` (default
-`http://localhost:3000`), `SPACY_MODEL` (default `en_core_web_md`), and optional
-`DOCUMENT_DATABASE` (default `backend/data/neuraltext.sqlite3`). Copy
-`.env.example` to `.env` to customize settings. The trained English model is
+Backend `.env` settings include `DATABASE_URL` (required PostgreSQL connection
+string), `FRONTEND_URL` (default `http://localhost:3000`), and `SPACY_MODEL`
+(default `en_core_web_md`). Production has no local storage fallback. Preserve
+Neon's TLS settings in the connection string; TLS is required by default.
+Copy `.env.example` to `.env` to customize settings. The trained English model is
 installed by `uv sync` using the official spaCy release wheel. If the selected
 model is absent, the API uses a blank English pipeline and explicitly reports
 its limitations; it does not invent entities or POS tags.
@@ -169,9 +201,16 @@ Run tests with:
 uv run python -m unittest discover -s tests -v
 ```
 
-Documents persist in SQLite across restarts. Tests use isolated repositories
-and temporary databases. The local `data/` directory is ignored by Git. Python may create `__pycache__` folders during
-execution; `.gitignore` excludes them and they are not application source.
+Normal tests use isolated in-memory repositories and do not touch Neon.
+To also run persistence, JSON/date round-trip, and ownership integration checks,
+set `TEST_DATABASE_URL` explicitly to a PostgreSQL test database and run the
+same test command. These checks use unique records and clean up only their own
+IDs; they never truncate tables. A separate Neon test branch is recommended.
+
+The local `data/` directory is ignored by Git and can hold a JSON backup of
+previously imported records; it is never used for runtime persistence.
+Python may create `__pycache__` folders during execution; `.gitignore` excludes
+them and they are not application source.
 
 ## NLP implementation
 

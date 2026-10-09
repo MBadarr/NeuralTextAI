@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { ClassificationResults } from "@/components/ClassificationResults";
 import type { AnalysisResult } from "@/types/analysis";
 
 export function AnalysisResults({ result }: { result: AnalysisResult }) {
@@ -43,7 +44,7 @@ export function AnalysisResults({ result }: { result: AnalysisResult }) {
         <button
           type="button"
           onClick={exportResult}
-          className="text-xs font-bold text-[#7357ef]"
+          className="text-xs font-bold text-workspace-accent"
         >
           Export JSON
         </button>
@@ -51,7 +52,7 @@ export function AnalysisResults({ result }: { result: AnalysisResult }) {
       {result.warnings.map((warning) => (
         <p
           key={warning}
-          className="rounded-lg bg-amber-50 p-3 text-xs text-amber-800"
+          className="rounded-lg bg-workspace-warning-soft p-3 text-xs text-workspace-warning"
         >
           {warning}
         </p>
@@ -65,13 +66,18 @@ export function AnalysisResults({ result }: { result: AnalysisResult }) {
           ["Reading (min)", result.reading_time_minutes],
           ["Characters", result.character_count],
         ].map(([label, value]) => (
-          <div key={label} className="rounded-lg bg-[#f8f7fd] p-3 text-center">
-            <strong className="block text-lg text-[#7357ef]">{value}</strong>
-            <span className="text-xs text-[#77768b]">{label}</span>
+          <div
+            key={label}
+            className="rounded-lg bg-workspace-subtle p-3 text-center"
+          >
+            <strong className="block text-lg text-workspace-accent">
+              {value}
+            </strong>
+            <span className="text-xs text-workspace-muted">{label}</span>
           </div>
         ))}
       </div>
-      <p className="text-xs text-[#77768b]">
+      <p className="text-xs text-workspace-muted">
         Language:{" "}
         {result.language === "und"
           ? "Not enough text to detect"
@@ -83,20 +89,26 @@ export function AnalysisResults({ result }: { result: AnalysisResult }) {
         role="tablist"
         aria-label="Analysis details"
       >
-        {["Entities", "Tokens", "Keywords", "Readability", "Summary"].map(
-          (name) => (
-            <button
-              type="button"
-              role="tab"
-              aria-selected={tab === name}
-              key={name}
-              onClick={() => setTab(name)}
-              className={`rounded-lg px-3 py-2 text-xs ${tab === name ? "bg-[#7357ef] text-white" : "bg-[#f8f7fd] text-[#77768b]"}`}
-            >
-              {name}
-            </button>
-          ),
-        )}
+        {[
+          "Entities",
+          "Tokens",
+          "Intent",
+          "Emotions",
+          "Keywords",
+          "Readability",
+          "Summary",
+        ].map((name) => (
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === name}
+            key={name}
+            onClick={() => setTab(name)}
+            className={`rounded-lg px-3 py-2 text-xs ${tab === name ? "bg-workspace-primary text-workspace-on-primary" : "bg-workspace-subtle text-workspace-muted"}`}
+          >
+            {name}
+          </button>
+        ))}
       </div>
       <div role="tabpanel">
         {tab === "Entities" && (
@@ -107,10 +119,10 @@ export function AnalysisResults({ result }: { result: AnalysisResult }) {
                   <mark
                     key={segment.key}
                     title={segment.label}
-                    className="rounded bg-violet-100 px-1"
+                    className="rounded bg-workspace-highlight px-1"
                   >
                     {segment.text}
-                    <small className="ml-1 text-violet-700">
+                    <small className="ml-1 text-workspace-accent">
                       {segment.label}
                     </small>
                   </mark>
@@ -120,18 +132,25 @@ export function AnalysisResults({ result }: { result: AnalysisResult }) {
               )}
             </p>
             {!result.entities.length && (
-              <p className="text-xs text-[#77768b]">No entities detected.</p>
+              <p className="text-xs text-workspace-muted">
+                No entities detected.
+              </p>
             )}
           </div>
         )}
         {tab === "Tokens" && (
           <div className="max-h-96 overflow-auto">
+            <p className="mb-3 text-xs text-workspace-muted">
+              Lemmas are dictionary base forms. Snowball stems group word
+              variants and may not be dictionary words.
+            </p>
             <table className="w-full text-left text-xs">
               <thead>
                 <tr>
                   {[
                     "Token",
                     "Lemma",
+                    "Stem",
                     "POS",
                     "Dependency",
                     "Head",
@@ -147,10 +166,11 @@ export function AnalysisResults({ result }: { result: AnalysisResult }) {
                 {result.tokens.map((token) => (
                   <tr
                     key={`${token.start}-${token.end}`}
-                    className="border-t border-[#ededf3]"
+                    className="border-t border-workspace-border"
                   >
                     <td className="p-2">{token.text}</td>
                     <td className="p-2">{token.lemma}</td>
+                    <td className="p-2">{token.stem || "—"}</td>
                     <td className="p-2">{token.part_of_speech}</td>
                     <td className="p-2">{token.dependency}</td>
                     <td className="p-2">{token.head}</td>
@@ -168,7 +188,7 @@ export function AnalysisResults({ result }: { result: AnalysisResult }) {
               {result.keywords.map((keyword) => (
                 <span
                   key={keyword.text}
-                  className="rounded-full bg-violet-50 px-3 py-2 text-xs text-violet-700"
+                  className="rounded-full bg-workspace-accent-soft px-3 py-2 text-xs text-workspace-accent"
                 >
                   {keyword.text}
                 </span>
@@ -187,6 +207,12 @@ export function AnalysisResults({ result }: { result: AnalysisResult }) {
             ))}
           </div>
         )}
+        {tab === "Intent" && (
+          <ClassificationResults result={result.intent} kind="Intent" />
+        )}
+        {tab === "Emotions" && (
+          <ClassificationResults result={result.emotions} kind="Emotion" />
+        )}
         {tab === "Readability" && (
           <div className="space-y-3">
             {result.readability ? (
@@ -200,7 +226,7 @@ export function AnalysisResults({ result }: { result: AnalysisResult }) {
                     <strong>{value}</strong>
                   </div>
                 ))}
-                <p className="text-xs text-[#77768b]">
+                <p className="text-xs text-workspace-muted">
                   English readability estimates use syllable patterns. Higher
                   Flesch ease means easier reading; grade approximates a US
                   school grade.

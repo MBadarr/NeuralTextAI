@@ -57,19 +57,19 @@ export function Topbar() {
     }
   }
   return (
-    <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b border-[#e9e9f2] bg-white/95 px-3.5 backdrop-blur-md sm:h-18 sm:px-4.5 lg:px-10.5">
+    <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b border-workspace-border bg-workspace-surface/95 px-3.5 backdrop-blur-md sm:h-18 sm:px-4.5 lg:px-10.5">
       <button
         type="button"
-        className="block text-[#77768b] lg:hidden"
+        className="block text-workspace-muted lg:hidden"
         onClick={toggleMobile}
         aria-label="Toggle navigation"
       >
         <span className="text-lg transition-transform duration-200">☰</span>
       </button>
-      <div className="flex items-center gap-2.5 text-xs text-[#aaa9b8]">
+      <div className="flex items-center gap-2.5 text-xs text-workspace-muted">
         <span>Workspace</span>
         <b>/</b>
-        <strong className="text-[#15142b]">{active}</strong>
+        <strong className="text-workspace-text">{active}</strong>
       </div>
       <div className="flex items-center gap-4.25">
         <ThemeToggle />
@@ -82,7 +82,7 @@ export function Topbar() {
         <div className="relative">
           <button
             type="button"
-            className="text-xs text-[#7357ef]"
+            className="text-xs text-workspace-accent"
             disabled={signingOut}
             onClick={signOut}
           >
@@ -97,7 +97,7 @@ export function Topbar() {
             </p>
           )}
         </div>
-        <div className="hidden w-57.5 items-center gap-2 rounded-lg border border-[#ededf5] bg-[#f8f8fc] p-2.5 text-[#9a99aa] sm:flex">
+        <div className="hidden w-57.5 items-center gap-2 rounded-lg border border-workspace-border bg-workspace-bg p-2.5 text-workspace-muted sm:flex">
           <Icon name="search" size={16} />
           <input
             ref={inputRef}
@@ -108,7 +108,7 @@ export function Topbar() {
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Search documents..."
           />
-          <kbd className="whitespace-nowrap rounded border border-[#e6e5ed] bg-white px-1.5 py-0.5 text-[9px]">
+          <kbd className="whitespace-nowrap rounded border border-workspace-border bg-workspace-surface px-1.5 py-0.5 text-[9px]">
             Ctrl K
           </kbd>
         </div>
@@ -117,12 +117,12 @@ export function Topbar() {
             type="button"
             onClick={() => (showStatus ? setShowStatus(false) : checkStatus())}
             aria-expanded={showStatus}
-            className="text-xs text-[#7357ef]"
+            className="text-xs text-workspace-accent"
           >
             Service status
           </button>
           {showStatus && (
-            <output className="absolute right-0 top-8 w-64 rounded-lg border border-[#ededf3] bg-white p-3 text-xs leading-6 shadow-lg">
+            <output className="absolute right-0 top-8 w-64 rounded-lg border border-workspace-border bg-workspace-surface p-3 text-xs leading-6 shadow-lg">
               {status}
             </output>
           )}

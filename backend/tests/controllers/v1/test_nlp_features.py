@@ -77,11 +77,48 @@ class NLPFeaturesTests(TestCase):
             self.assertEqual(comparison["match_percentage"], 100)
             self.assertEqual(comparison["compared_documents"], 2)
 
+    def test_classification_and_stems_round_trip_through_api(self):
+        with TestClient(app) as client:
+            intent = client.post("/intent", json={"text": "Can you help me?"})
+            self.assertEqual(intent.status_code, 200)
+            self.assertEqual(intent.json()["label"], "Request")
+            self.assertIn("spaCy", intent.json()["method"])
+            semantic = client.post(
+                "/intent",
+                json={"text": "My delivery is late and the service is terrible."},
+            ).json()
+            self.assertEqual(semantic["label"], "Complaint")
+            self.assertEqual(
+                semantic["sentences"][0]["evidence"], "Similarity to semantic examples"
+            )
+            emotion = client.post(
+                "/emotions", json={"text": "I am not sad, but I am very happy."}
+            )
+            self.assertEqual(emotion.status_code, 200)
+            self.assertEqual(emotion.json()["label"], "Joy")
+            response = client.post(
+                "/analysis", json={"text": "Please help me. I am scared and running."}
+            )
+            self.assertEqual(response.status_code, 200)
+            result = response.json()
+            self.assertEqual(result["emotions"]["label"], "Fear")
+            self.assertEqual(result["intent"]["label"], "Mixed")
+            self.assertEqual(
+                next(t for t in result["tokens"] if t["text"] == "running")["stem"],
+                "run",
+            )
+            saved = client.get(f"/documents/{result['id']}").json()
+            self.assertEqual(saved["emotions"], result["emotions"])
+            self.assertEqual(saved["intent"], result["intent"])
+            self.assertEqual(saved["tokens"], result["tokens"])
+
     def test_whitespace_empty_vocabulary_and_invalid_limits(self):
         with TestClient(app) as client:
             for path in (
                 "/analysis",
                 "/sentiment",
+                "/intent",
+                "/emotions",
                 "/summary",
                 "/writing-feedback",
                 "/autocomplete",

@@ -3,10 +3,13 @@ import { createNeonAuth } from "@neondatabase/auth/next/server";
 import {
   createAuthServer,
   extractNeonAuthCookies,
+  NEON_AUTH_SESSION_COOKIE_NAME,
+  parseCookieValue,
 } from "@neondatabase/auth/server";
 import { headers } from "next/headers";
+import { requestOrigin, validateAuthBaseUrl } from "@/lib/auth-config";
 
-const baseUrl = process.env.NEON_AUTH_BASE_URL;
+const baseUrl = validateAuthBaseUrl(process.env.NEON_AUTH_BASE_URL);
 const secret = process.env.NEON_AUTH_COOKIE_SECRET;
 if (!baseUrl || !secret || secret.length < 32) {
   throw new Error(
@@ -32,15 +35,26 @@ const sessionReader = createAuthServer({
       getCookies: () => extractNeonAuthCookies(requestHeaders),
       setCookie: () => {},
       getHeader: (name) => requestHeaders.get(name),
-      getOrigin: () =>
-        requestHeaders.get("origin") ||
-        requestHeaders.get("referer")?.split("/").slice(0, 3).join("/") ||
-        "",
+      getOrigin: () => requestOrigin(requestHeaders),
       getFramework: () => "nextjs",
     };
   },
 });
 
-export function readSession() {
-  return sessionReader.getSession({ query: { disableCookieCache: "true" } });
+export async function readSession() {
+  const requestCookies = extractNeonAuthCookies(await headers());
+  if (!parseCookieValue(requestCookies, NEON_AUTH_SESSION_COOKIE_NAME)) {
+    return { data: null, error: null };
+  }
+  const result = await sessionReader.getSession({
+    query: { disableCookieCache: "true" },
+  });
+  if (result.error?.status === 401) return { data: null, error: null };
+  if (result.error) {
+    console.error("Neon session verification failed", {
+      status: result.error.status,
+      code: result.error.code || "session_service_error",
+    });
+  }
+  return result;
 }

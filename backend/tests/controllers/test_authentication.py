@@ -93,6 +93,9 @@ class AuthenticationTests(TestCase):
         self.assertEqual(caught.exception.status_code, 403)
 
     def test_backend_cannot_be_accessed_without_authentication(self):
+        repository = DocumentRepository()
+        app.dependency_overrides[get_document_repository] = lambda: repository
+        self.addCleanup(app.dependency_overrides.pop, get_document_repository)
         with TestClient(app) as client:
             for path in ("/documents", "/insights", "/models"):
                 self.assertEqual(client.get(path).status_code, 401)

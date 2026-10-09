@@ -1,5 +1,3 @@
-from pathlib import Path
-from tempfile import TemporaryDirectory
 from unittest import TestCase
 
 from app.repositories.document_repository import DocumentRepository
@@ -21,11 +19,3 @@ class DocumentOwnershipTests(TestCase):
 
     def test_memory_repository_isolation(self):
         self.check_isolation(DocumentRepository())
-
-    def test_sqlite_repository_isolation_and_persistence(self):
-        with TemporaryDirectory() as directory:
-            path = Path(directory) / "documents.sqlite3"
-            self.check_isolation(DocumentRepository(path))
-            self.assertEqual(
-                DocumentRepository(path).get("one", "alice"), {"id": "one"}
-            )

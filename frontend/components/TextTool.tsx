@@ -1,14 +1,24 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { ClassificationResults } from "@/components/ClassificationResults";
 import { runTextTool } from "@/lib/api";
 import type {
+  ClassificationResult,
   PlagiarismResult,
   SentimentResult,
   SummaryResult,
 } from "@/types/analysis";
 
 const tools = {
+  "Intent analysis": [
+    "intent",
+    "Identify sentence-level questions, requests, complaints, appreciation, and statements.",
+  ],
+  "Emotion analysis": [
+    "emotions",
+    "Find English emotion evidence for joy, anger, sadness, fear, surprise, and disgust.",
+  ],
   "Sentiment analysis": [
     "sentiment",
     "Analyze English sentiment, including negation and emphasis.",
@@ -28,7 +38,11 @@ export function TextTool({ name }: { name: ToolName }) {
   const [text, setText] = useState("");
   const [sentenceLimit, setSentenceLimit] = useState(3);
   const [result, setResult] = useState<
-    SentimentResult | SummaryResult | PlagiarismResult | null
+    | SentimentResult
+    | ClassificationResult
+    | SummaryResult
+    | PlagiarismResult
+    | null
   >(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -62,9 +76,11 @@ export function TextTool({ name }: { name: ToolName }) {
   }
   return (
     <div className="grid items-start gap-4 lg:grid-cols-2">
-      <section className="rounded-xl border border-[#ededf3] bg-white p-5 shadow-sm">
+      <section className="rounded-xl border border-workspace-border bg-workspace-surface p-5 shadow-sm">
         <h2 className="text-sm font-bold">{name}</h2>
-        <p className="mt-2 text-xs leading-6 text-[#77768b]">{description}</p>
+        <p className="mt-2 text-xs leading-6 text-workspace-muted">
+          {description}
+        </p>
         <label htmlFor="tool-text" className="mt-4 block text-xs font-bold">
           Text
         </label>
@@ -78,7 +94,7 @@ export function TextTool({ name }: { name: ToolName }) {
             setResult(null);
             setError("");
           }}
-          className="mt-2 min-h-64 w-full rounded-lg border border-[#e6e5ee] p-3 text-sm"
+          className="mt-2 min-h-64 w-full rounded-lg border border-workspace-border p-3 text-sm"
           placeholder="Paste text here..."
         />
         {path === "summary" && (
@@ -106,7 +122,7 @@ export function TextTool({ name }: { name: ToolName }) {
           </label>
         )}
         {error && (
-          <p role="alert" className="mt-3 text-xs text-red-600">
+          <p role="alert" className="mt-3 text-xs text-workspace-danger">
             {error}
           </p>
         )}
@@ -114,29 +130,35 @@ export function TextTool({ name }: { name: ToolName }) {
           type="button"
           disabled={loading || !text.trim()}
           onClick={submit}
-          className="mt-4 rounded-lg bg-[#7357ef] px-4 py-3 text-sm font-bold text-white disabled:opacity-50"
+          className="mt-4 rounded-lg bg-workspace-primary px-4 py-3 text-sm font-bold text-workspace-on-primary disabled:opacity-50"
         >
           {loading ? "Processing..." : `Run ${name.toLowerCase()}`}
         </button>
       </section>
-      <section className="space-y-4 rounded-xl border border-[#ededf3] bg-white p-5 shadow-sm">
+      <section className="space-y-4 rounded-xl border border-workspace-border bg-workspace-surface p-5 shadow-sm">
         <h2 className="text-sm font-bold">Result</h2>
         {!result ? (
-          <p className="py-12 text-center text-sm text-[#77768b]">
+          <p className="py-12 text-center text-sm text-workspace-muted">
             Your result will appear here.
           </p>
         ) : (
           <>
-            <p className="text-xs text-[#77768b]">{result.method}</p>
-            {"label" in result && (
+            <p className="text-xs text-workspace-muted">{result.method}</p>
+            {"sentences" in result && (
+              <ClassificationResults
+                result={result}
+                kind={path === "intent" ? "Intent" : "Emotion"}
+              />
+            )}
+            {"positive" in result && (
               <>
-                <strong className="block text-3xl text-violet-700">
+                <strong className="block text-3xl text-workspace-accent">
                   {result.label}
                 </strong>
                 <p className="text-sm">
                   Compound score: {result.score} (-1 to +1)
                 </p>
-                <p className="text-xs text-[#77768b]">
+                <p className="text-xs text-workspace-muted">
                   This score measures sentiment intensity, not prediction
                   confidence.
                 </p>
@@ -151,15 +173,21 @@ export function TextTool({ name }: { name: ToolName }) {
                   </div>
                 ))}
                 {result.warnings.map((warning) => (
-                  <p key={warning} className="text-xs text-amber-800">
+                  <p key={warning} className="text-xs text-workspace-warning">
                     {warning}
                   </p>
                 ))}
+                {result.emotions && (
+                  <ClassificationResults
+                    result={result.emotions}
+                    kind="Emotion"
+                  />
+                )}
               </>
             )}
             {"summary" in result && (
               <>
-                <p className="text-xs text-[#77768b]">
+                <p className="text-xs text-workspace-muted">
                   Selected {result.selected_sentence_count} of{" "}
                   {result.sentence_count} sentences
                 </p>
@@ -170,10 +198,10 @@ export function TextTool({ name }: { name: ToolName }) {
             )}
             {"match_percentage" in result && (
               <>
-                <strong className="block text-3xl text-violet-700">
+                <strong className="block text-3xl text-workspace-accent">
                   {result.match_percentage}%
                 </strong>
-                <p className="text-xs text-[#77768b]">
+                <p className="text-xs text-workspace-muted">
                   Highest similarity across {result.compared_documents} saved
                   documents
                 </p>
@@ -186,7 +214,7 @@ export function TextTool({ name }: { name: ToolName }) {
                 {result.matches.map((match) => (
                   <div
                     key={match.document_id}
-                    className="flex justify-between rounded-lg bg-violet-50 p-3 text-sm"
+                    className="flex justify-between rounded-lg bg-workspace-accent-soft p-3 text-sm"
                   >
                     <span>{match.title}</span>
                     <strong>{match.overlap}%</strong>

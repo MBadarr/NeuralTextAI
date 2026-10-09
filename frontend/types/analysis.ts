@@ -14,6 +14,30 @@ export type SentimentResult = {
   neutral: number;
   method: string;
   warnings: string[];
+  emotions?: ClassificationResult;
+};
+export type ClassificationResult = {
+  label: string;
+  method: string;
+  scores: Record<string, number>;
+  warnings: string[];
+  sentences: Array<{
+    text: string;
+    start: number;
+    end: number;
+    label: string;
+    scores: Record<string, number>;
+    evidence?:
+      | string
+      | Array<{
+          text: string;
+          label: string;
+          negated: boolean;
+          weight: number;
+          start: number;
+          end: number;
+        }>;
+  }>;
 };
 export type Readability = {
   flesch_reading_ease: number;
@@ -39,6 +63,7 @@ export type AnalysisResult = {
   tokens: Array<{
     text: string;
     lemma: string;
+    stem?: string;
     part_of_speech: string;
     is_stop: boolean;
     dependency: string;
@@ -52,6 +77,8 @@ export type AnalysisResult = {
   word_frequencies: Array<{ word: string; count: number }>;
   readability: Readability | null;
   sentiment: SentimentResult;
+  intent?: ClassificationResult | null;
+  emotions?: ClassificationResult | null;
   summary: string;
 };
 export type Insights = {

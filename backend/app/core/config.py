@@ -23,12 +23,7 @@ class Settings:
     neon_auth_jwks_url: str = getenv("NEON_AUTH_JWKS_URL", "")
     neon_auth_issuer: str = getenv("NEON_AUTH_ISSUER", auth_origin)
     neon_auth_audience: str = getenv("NEON_AUTH_AUDIENCE", auth_origin)
-    document_database: Path = Path(
-        getenv(
-            "DOCUMENT_DATABASE",
-            str(Path(__file__).resolve().parents[2] / "data" / "neuraltext.sqlite3"),
-        )
-    )
+    database_url: str = getenv("DATABASE_URL", "")
 
     @property
     def cors_origins(self) -> list[str]:

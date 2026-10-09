@@ -32,3 +32,16 @@ class NLPServiceTests(TestCase):
             ],
         )
         self.assertEqual(result["match_percentage"], 100)
+
+    def test_stems_are_separate_from_lemmas_and_skip_punctuation(self):
+        self.assertEqual(self.nlp.stem("running"), "run")
+        self.assertEqual(self.nlp.stem("connections"), "connect")
+        self.assertEqual(self.nlp.stem("studies"), "studi")
+        self.assertEqual(self.nlp.stem("!"), "")
+        self.assertEqual(self.nlp.stem("bonjour", "fr"), "")
+        result = self.nlp.analyze("I am very happy and running.")
+        self.assertEqual(result["emotions"]["label"], "Joy")
+        self.assertEqual(result["intent"]["label"], "Statement")
+        self.assertEqual(
+            next(t for t in result["tokens"] if t["text"] == "running")["stem"], "run"
+        )

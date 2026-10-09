@@ -8,6 +8,7 @@ from uuid import uuid4
 
 import numpy as np
 import pyphen
+import snowballstemmer
 import spacy
 from langdetect import DetectorFactory, LangDetectException, detect_langs
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -15,6 +16,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
 from app.models.document import Document
+from app.services.text_classification import TextClassifier
 
 DetectorFactory.seed = 0
 
@@ -26,6 +28,8 @@ class NLPService:
         self._lock = Lock()
         self._sentiment = SentimentIntensityAnalyzer()
         self._syllables = pyphen.Pyphen(lang="en_US")
+        self._stemmer = snowballstemmer.stemmer("english")
+        self._classifier = None
         self.parse = lru_cache(maxsize=16)(self._parse)
 
     def load(self):
@@ -38,6 +42,7 @@ class NLPService:
                 self.nlp = spacy.blank("en")
                 self.nlp.add_pipe("sentencizer")
                 self.model_name = "en_blank"
+            self._classifier = TextClassifier(self.nlp)
             self.parse.cache_clear()
 
     def _parse(self, text: str):
@@ -50,7 +55,10 @@ class NLPService:
             return {"code": "und", "confidence": 0.0}
         try:
             detected = detect_langs(text[:5000])[0]
-            return {"code": detected.lang, "confidence": round(detected.prob, 3)}
+            return {
+                "code": detected.lang if detected.prob >= 0.8 else "und",
+                "confidence": round(detected.prob, 3),
+            }
         except LangDetectException:
             return {"code": "und", "confidence": 0.0}
 
@@ -64,6 +72,8 @@ class NLPService:
             warnings.append(
                 "Detected non-English text. English linguistic analysis, sentiment and readability may be inaccurate."
             )
+        elif language == "und":
+            warnings.append("Language is uncertain; English analysis is assumed.")
         return warnings
 
     def analyze(self, text: str, title: str | None = None) -> Document:
@@ -104,6 +114,7 @@ class NLPService:
                 {
                     "text": t.text,
                     "lemma": t.lemma_ or t.text.lower(),
+                    "stem": self.stem(t.text, language["code"]),
                     "part_of_speech": t.pos_ or "Unavailable",
                     "is_stop": t.is_stop,
                     "dependency": t.dep_ or "Unavailable",
@@ -125,6 +136,8 @@ class NLPService:
             ],
             "readability": readability,
             "sentiment": self.sentiment(text),
+            "intent": self._classifier.intent(doc, language["code"]),
+            "emotions": self._classifier.emotions(doc, language["code"]),
             "summary": self.summary(text)["summary"],
             "model": self.model_name,
             "warnings": self._warnings(language["code"]),
@@ -146,6 +159,9 @@ class NLPService:
                     "tokenization",
                     "sentence segmentation",
                     "VADER sentiment",
+                    "English intent classification",
+                    "English emotion evidence",
+                    "Snowball stemming",
                     "TF-IDF keywords",
                     "ranked summaries",
                     "language detection",
@@ -175,8 +191,24 @@ class NLPService:
             "negative": scores["neg"],
             "neutral": scores["neu"],
             "method": "VADER",
+            "emotions": self.emotions(text),
             "warnings": self._warnings(self.language(text)["code"]),
         }
+
+    def stem(self, text: str, language: str = "en") -> str:
+        if language not in ("en", "und") or not text.isalpha():
+            return ""
+        # Snowball's generated stemmer maintains mutable state per call.
+        with self._lock:
+            return self._stemmer.stemWord(text.lower())
+
+    def intent(self, text: str):
+        doc = self.parse(text)
+        return self._classifier.intent(doc, self.language(text)["code"])
+
+    def emotions(self, text: str):
+        doc = self.parse(text)
+        return self._classifier.emotions(doc, self.language(text)["code"])
 
     def keywords(self, text: str, limit: int = 10):
         sentences = self.sentences(text)

@@ -4,17 +4,16 @@ from typing import Annotated
 from fastapi import Depends
 
 from app.core.security import require_user
-from app.repositories.document_repository import (
-    DocumentRepository,
-    document_repository,
-)
+from app.db.session import get_pool
+from app.repositories.document_repository import DocumentRepository
 from app.services.document_service import DocumentService
 from app.services.nlp_service import NLPService, nlp_service
 from app.services.writing_service import WritingService
 
 
+@lru_cache(maxsize=1)
 def get_document_repository() -> DocumentRepository:
-    return document_repository
+    return DocumentRepository(get_pool())
 
 
 def get_nlp_service() -> NLPService:

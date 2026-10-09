@@ -31,6 +31,11 @@ The existing `.env` supplies `NEON_AUTH_BASE_URL` and
 The backend uses its existing `NEON_AUTH_BASE_URL` and `NEON_AUTH_JWKS_URL`.
 Both apps must point to the same Neon Auth endpoint and branch; otherwise the
 backend rejects the frontend's signed-in token.
+`NEON_AUTH_BASE_URL` is the auth service URL ending in `/neondb/auth`.
+`NEON_AUTH_JWKS_URL` points to its `/.well-known/jwks.json` signing-key document;
+these values serve different purposes and must not be interchanged. The frontend
+validates its base URL at startup. Public auth pages skip provider session checks
+when there is no session cookie; expired sessions return to sign-in.
 
 - `/auth/sign-up`: name, email and password signup, followed by email OTP.
 - `/auth/sign-in`: password login, Google OAuth, or passwordless email OTP.
@@ -56,7 +61,8 @@ rate limits, code expiry/attempt limits, and OAuth credentials are managed by
 Neon. Production uses HTTPS. No database passwords or storage credentials belong
 in public environment variables.
 
-Auth screens support light, dark, and system themes. The theme preference uses a
+Auth screens and the entire dashboard support light, dark, and system themes. Dashboard surfaces, text, controls, highlights, and alerts use shared semantic
+color tokens. The theme preference uses a
 cookie so the server renders the selected theme; system mode follows OS changes.
 All forms include labels, autocomplete hints, keyboard focus, pending states,
 and announced errors. Verification can request a fresh code if delivery fails.

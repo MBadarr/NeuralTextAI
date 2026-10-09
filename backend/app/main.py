@@ -3,10 +3,14 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from psycopg import Error as DatabaseError
+from psycopg_pool import PoolTimeout
+from starlette.concurrency import run_in_threadpool
 
 from app.core.config import settings
 from app.core.exceptions import DocumentNotFoundError
 from app.core.logging import get_logger
+from app.dependencies import get_document_repository
 from app.internal.health import router as health_router
 from app.routers.v1.router import router
 from app.services.nlp_service import nlp_service
@@ -15,10 +19,18 @@ logger = get_logger(__name__)
 
 
 @asynccontextmanager
-async def lifespan(_: FastAPI):
-    nlp_service.load()
-    logger.info("Loaded NLP model: %s", nlp_service.model_name)
-    yield
+async def lifespan(application: FastAPI):
+    factory = application.dependency_overrides.get(
+        get_document_repository, get_document_repository
+    )
+    repository = factory()
+    try:
+        await run_in_threadpool(repository.initialize)
+        nlp_service.load()
+        logger.info("Loaded NLP model: %s", nlp_service.model_name)
+        yield
+    finally:
+        await run_in_threadpool(repository.close)
 
 
 app = FastAPI(
@@ -38,6 +50,16 @@ app.add_middleware(
 
 app.include_router(router)
 app.include_router(health_router)
+
+
+@app.exception_handler(DatabaseError)
+@app.exception_handler(PoolTimeout)
+async def database_unavailable(_: Request, error: Exception):
+    logger.error("Neon database request failed (%s)", type(error).__name__)
+    return JSONResponse(
+        status_code=503,
+        content={"detail": "Database temporarily unavailable. Please retry."},
+    )
 
 
 @app.exception_handler(DocumentNotFoundError)

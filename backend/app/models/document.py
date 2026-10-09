@@ -1,4 +1,4 @@
-"""Document domain types used by the in-memory repository."""
+"""Document domain types persisted by the document repository."""
 
 from datetime import datetime
 from typing import NotRequired, TypedDict
@@ -7,6 +7,7 @@ from typing import NotRequired, TypedDict
 class Token(TypedDict):
     text: str
     lemma: str
+    stem: NotRequired[str]
     part_of_speech: str
     is_stop: bool
     dependency: NotRequired[str]
@@ -41,6 +42,8 @@ class Document(TypedDict):
     word_frequencies: NotRequired[list[dict]]
     readability: NotRequired[dict | None]
     sentiment: NotRequired[dict]
+    intent: NotRequired[dict]
+    emotions: NotRequired[dict]
     summary: NotRequired[str]
     processing_time_ms: NotRequired[float]
     model: NotRequired[str]
