@@ -7,28 +7,34 @@ from app.services.nlp_service import NLPService
 
 
 class DocumentService:
-    def __init__(self, repository: DocumentRepository, nlp: NLPService):
+    def __init__(
+        self,
+        repository: DocumentRepository,
+        nlp: NLPService,
+        owner_id: str | None = None,
+    ):
         self.repository = repository
         self.nlp = nlp
+        self.owner_id = owner_id
 
     def create(self, text: str, title: str | None = None) -> Document:
-        return self.repository.save(self.nlp.analyze(text, title))
+        return self.repository.save(self.nlp.analyze(text, title), self.owner_id)
 
     def list(self) -> list[Document]:
-        return self.repository.list()
+        return self.repository.list(self.owner_id)
 
     def get(self, document_id: str) -> Document:
-        document = self.repository.get(document_id)
+        document = self.repository.get(document_id, self.owner_id)
         if document is None:
             raise DocumentNotFoundError(document_id)
         return document
 
     def delete(self, document_id: str) -> None:
-        if not self.repository.delete(document_id):
+        if not self.repository.delete(document_id, self.owner_id):
             raise DocumentNotFoundError(document_id)
 
     def insights(self) -> dict:
-        documents = self.repository.list()
+        documents = self.repository.list(self.owner_id)
         return {
             "total_documents": len(documents),
             "total_words": sum(item["word_count"] for item in documents),

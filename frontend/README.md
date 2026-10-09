@@ -19,17 +19,60 @@ Open <http://localhost:3000>. Start the backend separately from `backend/`:
 uv run uvicorn app.main:app --reload
 ```
 
-The API client uses `http://localhost:8000` by default. Set
-`NEXT_PUBLIC_API_URL` when the API is hosted elsewhere. `.env.example` targets
-the local backend. Restart the dev server after changing this setting; production
-builds embed the API URL at build time. Deploy both frontend and backend changes
-together when using a hosted API.
+The browser calls the same-origin `/api/backend` route. This route validates the
+Neon session and verified email, obtains a short-lived Neon JWT on the server,
+and forwards requests to `API_URL`, falling back to `NEXT_PUBLIC_API_URL` and
+then `http://localhost:8000`. Deploy both frontend and backend changes together.
+
+## Authentication and sessions
+
+The existing `.env` supplies `NEON_AUTH_BASE_URL` and
+`NEON_AUTH_COOKIE_SECRET` (at least 32 characters). Secrets remain server-only.
+The backend uses its existing `NEON_AUTH_BASE_URL` and `NEON_AUTH_JWKS_URL`.
+Both apps must point to the same Neon Auth endpoint and branch; otherwise the
+backend rejects the frontend's signed-in token.
+
+- `/auth/sign-up`: name, email and password signup, followed by email OTP.
+- `/auth/sign-in`: password login, Google OAuth, or passwordless email OTP.
+- `/auth/verify`: code entry, resend cooldown, and recovery after refresh.
+- `/auth/callback`: server-validated OAuth completion.
+- `/`: server-protected workspace; unverified users return to verification.
+
+Neon's SDK manages HTTP-only session cookies and renewal. Authentication is
+checked against Neon on workspace entry and every proxied API request. The
+client subscribes to SDK session changes and periodically rechecks sessions.
+Tokens and passwords are never saved to localStorage or sessionStorage.
+Only pending email/code-purpose details are kept in sessionStorage, and
+navigation/sidebar preferences are stored under a separate key per user.
+`proxy.ts` completes Neon's OAuth verifier exchange and refreshes cookies before
+rendering. Server Components use a read-only SDK context for live session
+checks, since Next.js prohibits cookie writes during server rendering. The OTP
+page remains public so accounts without a session can verify their email.
+
+Ensure the deployed app origin is a trusted domain in Neon Auth, Google is
+enabled, and email verification uses **verification codes**. Enable required
+email verification in Neon as well as the app's verified-email gate. Provider
+rate limits, code expiry/attempt limits, and OAuth credentials are managed by
+Neon. Production uses HTTPS. No database passwords or storage credentials belong
+in public environment variables.
+
+Auth screens support light, dark, and system themes. The theme preference uses a
+cookie so the server renders the selected theme; system mode follows OS changes.
+All forms include labels, autocomplete hints, keyboard focus, pending states,
+and announced errors. Verification can request a fresh code if delivery fails.
 
 ## Frontend structure
 
-- `app/page.tsx`: dashboard shell and feature-page routing.
+- `app/page.tsx`: server-side workspace session gate.
+- `app/auth/[view]/page.tsx`: authentication pages and OAuth callback.
+- `app/api/auth/[...path]/route.ts`: official Neon Auth handler.
+- `app/api/backend/[...path]/route.ts`: authenticated backend proxy.
 - `app/layout.tsx`: document metadata and font setup.
-- `app/globals.css`: Tailwind import only.
+- `app/globals.css`: Tailwind and themed, responsive authentication styles.
+- `components/Workspace.tsx`: existing dashboard shell and feature routing.
+- `components/AuthScreen.tsx`: signup, login and OTP forms.
+- `components/SessionGuard.tsx`: session updates and preference hydration.
+- `lib/auth-client.ts` / `lib/auth-server.ts`: Neon SDK configuration.
 - `components/Sidebar.tsx`: workspace navigation, desktop collapse, and mobile
   drawer.
 - `components/Topbar.tsx`: breadcrumb, search with Ctrl/Cmd+K, live service status, and mobile menu.
@@ -70,4 +113,5 @@ feature views.
 `components/AnalysisResults.tsx` is the shared result view used by the analyzer
 and saved documents. Browser JSON export works locally without uploading text.
 
-Verify with `pnpm lint`, `pnpm exec tsc --noEmit`, and `pnpm build`.
+Verify with `pnpm test`, `pnpm lint`, `pnpm exec tsc --noEmit`, and `pnpm build`.
+Frontend flow tests mock Neon; they never send email or create real accounts.

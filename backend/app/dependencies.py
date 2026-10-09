@@ -3,6 +3,7 @@ from typing import Annotated
 
 from fastapi import Depends
 
+from app.core.security import require_user
 from app.repositories.document_repository import (
     DocumentRepository,
     document_repository,
@@ -23,8 +24,9 @@ def get_nlp_service() -> NLPService:
 def get_document_service(
     repository: Annotated[DocumentRepository, Depends(get_document_repository)],
     nlp: Annotated[NLPService, Depends(get_nlp_service)],
+    user_id: Annotated[str, Depends(require_user)],
 ) -> DocumentService:
-    return DocumentService(repository, nlp)
+    return DocumentService(repository, nlp, owner_id=user_id)
 
 
 @lru_cache(maxsize=4)

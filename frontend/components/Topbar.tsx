@@ -2,7 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/Icon";
+import { ThemeToggle } from "@/components/ThemeProvider";
 import { getHealth } from "@/lib/api";
+import { authClient } from "@/lib/auth-client";
 import { useWorkspaceStore } from "@/lib/workspace-store";
 
 export function Topbar() {
@@ -10,6 +12,26 @@ export function Topbar() {
   const inputRef = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState("");
   const [showStatus, setShowStatus] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
+  const [signOutError, setSignOutError] = useState("");
+  const { data: session } = authClient.useSession();
+  async function signOut() {
+    setSigningOut(true);
+    setSignOutError("");
+    try {
+      const result = await authClient.signOut();
+      if (result.error)
+        throw new Error(result.error.message || "Sign out failed.");
+      window.location.replace("/auth/sign-in");
+    } catch (reason) {
+      setSignOutError(
+        reason instanceof Error
+          ? reason.message
+          : "Sign out failed. Please retry.",
+      );
+      setSigningOut(false);
+    }
+  }
   useEffect(() => {
     function shortcut(event: KeyboardEvent) {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
@@ -50,6 +72,31 @@ export function Topbar() {
         <strong className="text-[#15142b]">{active}</strong>
       </div>
       <div className="flex items-center gap-4.25">
+        <ThemeToggle />
+        <span
+          className="hidden max-w-32 truncate text-xs sm:block"
+          title={session?.user.email}
+        >
+          {session?.user.name || session?.user.email}
+        </span>
+        <div className="relative">
+          <button
+            type="button"
+            className="text-xs text-[#7357ef]"
+            disabled={signingOut}
+            onClick={signOut}
+          >
+            {signingOut ? "Signing out…" : "Sign out"}
+          </button>
+          {signOutError && (
+            <p
+              role="alert"
+              className="auth-message auth-error absolute right-0 top-8 w-64"
+            >
+              {signOutError}
+            </p>
+          )}
+        </div>
         <div className="hidden w-57.5 items-center gap-2 rounded-lg border border-[#ededf5] bg-[#f8f8fc] p-2.5 text-[#9a99aa] sm:flex">
           <Icon name="search" size={16} />
           <input

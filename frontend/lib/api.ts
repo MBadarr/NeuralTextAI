@@ -11,9 +11,7 @@ import type {
   WritingFeedbackResult,
 } from "@/types/analysis";
 
-const API_URL = (
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"
-).replace(/\/$/, "");
+const API_URL = "/api/backend";
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   let response: Response;
@@ -21,14 +19,16 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     response = await fetch(`${API_URL}${path}`, {
       ...options,
       cache: "no-store",
+      credentials: "same-origin",
     });
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") throw error;
-    throw new Error(
-      `Cannot reach the backend at ${API_URL}. Start the backend and check its CORS settings.`,
-    );
+    throw new Error("Cannot reach the service. Please try again in a moment.");
   }
   if (!response.ok) {
+    if (response.status === 401 && typeof window !== "undefined") {
+      window.location.replace("/auth/sign-in");
+    }
     let message = `Backend request failed (${response.status}).`;
     try {
       const body = (await response.json()) as {

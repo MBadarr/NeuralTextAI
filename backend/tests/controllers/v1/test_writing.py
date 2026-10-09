@@ -2,10 +2,15 @@ from unittest import TestCase
 
 from fastapi.testclient import TestClient
 
+from app.core.security import require_user
 from app.main import app
 
 
 class WritingRoutesTests(TestCase):
+    def setUp(self):
+        app.dependency_overrides[require_user] = lambda: "test-user"
+        self.addCleanup(app.dependency_overrides.pop, require_user)
+
     def test_writing_feedback_and_autocomplete(self):
         with TestClient(app) as client:
             feedback = client.post(

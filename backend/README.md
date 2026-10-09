@@ -19,6 +19,30 @@ during startup, configures CORS for the frontend, and preserves `/docs`,
 
 ## API endpoints
 
+Workspace endpoints require `Authorization: Bearer <Neon JWT>`. The Next.js
+server proxy supplies this after checking the live session and verified email.
+Direct API calls must also supply a valid signed token. `core/security.py`
+validates the signature against `NEON_AUTH_JWKS_URL`, expiry, issuer, audience,
+and user identity; anonymous tokens are rejected. JWTs remain valid until their
+short expiry with a 30-second clock-skew tolerance, while the frontend proxy also
+enforces live session revocation.
+The default issuer and audience are `NEON_AUTH_BASE_URL`'s origin without
+the path, matching signed-in Managed Better Auth tokens. Optional
+`NEON_AUTH_ISSUER` / `NEON_AUTH_AUDIENCE` overrides support
+provider configuration changes. Health and documentation routes remain public.
+The frontend and backend must use the same Neon Auth endpoint and branch. A
+different provider or branch produces a token rejection, surfaced as a 502 by
+the frontend proxy; the response's `code` and backend warning identify the
+failure category without exposing tokens.
+
+Document creation, lists, reads, deletion, insights, search and plagiarism
+comparisons are scoped to the authenticated user. Existing document storage
+remains in SQLite; Neon manages authentication and sessions in PostgreSQL.
+The repository adds an indexed `owner_id` column without deleting existing
+data. Older documents have no owner and are hidden from authenticated users;
+an administrator must assign ownership explicitly if they should be recovered.
+Object Storage integration is outside this authentication change.
+
 All endpoints use JSON. Analysis and writing endpoints accept:
 
 ```json
