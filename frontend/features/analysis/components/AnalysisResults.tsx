@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { ClassificationResults } from "@/components/ClassificationResults";
-import type { AnalysisResult } from "@/types/analysis";
+import { ClassificationResults } from "@/features/analysis/components/ClassificationResults";
+import type { AnalysisResult } from "@/features/analysis/types/analysis";
+import { Button } from "@/ui/Button";
 
 export function AnalysisResults({ result }: { result: AnalysisResult }) {
   const [tab, setTab] = useState("Entities");
@@ -41,13 +42,13 @@ export function AnalysisResults({ result }: { result: AnalysisResult }) {
     <div className="space-y-5">
       <div className="flex items-center justify-between gap-3">
         <h2 className="font-bold">{result.title}</h2>
-        <button
+        <Button
           type="button"
           onClick={exportResult}
           className="text-xs font-bold text-workspace-accent"
         >
           Export JSON
-        </button>
+        </Button>
       </div>
       {result.warnings.map((warning) => (
         <p
@@ -98,7 +99,7 @@ export function AnalysisResults({ result }: { result: AnalysisResult }) {
           "Readability",
           "Summary",
         ].map((name) => (
-          <button
+          <Button
             type="button"
             role="tab"
             aria-selected={tab === name}
@@ -107,7 +108,7 @@ export function AnalysisResults({ result }: { result: AnalysisResult }) {
             className={`rounded-lg px-3 py-2 text-xs ${tab === name ? "bg-workspace-primary text-workspace-on-primary" : "bg-workspace-subtle text-workspace-muted"}`}
           >
             {name}
-          </button>
+          </Button>
         ))}
       </div>
       <div role="tabpanel">

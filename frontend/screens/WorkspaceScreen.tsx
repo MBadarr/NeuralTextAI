@@ -1,14 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { FeaturePage } from "@/components/FeaturePage";
-import { Icon } from "@/components/Icon";
-import { Overview } from "@/components/Overview";
-import { Sidebar } from "@/components/Sidebar";
-import { Topbar } from "@/components/Topbar";
-import { useWorkspaceStore } from "@/lib/workspace-store";
+import { Sidebar } from "@/components/layout/Sidebar";
+import { Topbar } from "@/components/layout/Topbar";
+import { FeatureContent } from "@/features/workspace/components/FeatureContent";
+import { useWorkspaceStore } from "@/features/workspace/store/workspace-store";
+import { OverviewScreen } from "@/screens/OverviewScreen";
+import { Button } from "@/ui/Button";
+import { Icon } from "@/ui/Icon";
 
-export default function Home() {
+export default function WorkspaceScreen() {
   const { active, query, selectPage } = useWorkspaceStore();
   const [analysisRevision, setAnalysisRevision] = useState(0);
 
@@ -18,7 +19,7 @@ export default function Home() {
       <section className="min-w-0 flex-1">
         <Topbar />
         {active === "Overview" ? (
-          <Overview query={query} onNavigate={selectPage} />
+          <OverviewScreen query={query} onNavigate={selectPage} />
         ) : (
           <div className="mx-auto max-w-375 p-4.5 sm:p-7 lg:p-10.5">
             <div className="mb-7.5 flex flex-col items-start justify-between gap-5 sm:flex-row sm:items-end">
@@ -31,7 +32,7 @@ export default function Home() {
                   Use this workspace to manage your NLP workflow.
                 </p>
               </div>
-              <button
+              <Button
                 type="button"
                 onClick={() => {
                   selectPage("Text analyzer");
@@ -40,9 +41,9 @@ export default function Home() {
                 className="flex items-center gap-2 rounded-lg bg-workspace-primary px-4 py-3 text-xs font-bold text-workspace-on-primary"
               >
                 <Icon name="spark" size={16} /> New analysis
-              </button>
+              </Button>
             </div>
-            <FeaturePage
+            <FeatureContent
               key={`${active}-${analysisRevision}`}
               active={active}
             />

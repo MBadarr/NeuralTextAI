@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
-import { AuthScreen, type AuthView } from "@/components/AuthScreen";
-import { readSession } from "@/lib/auth-server";
+import { readSession } from "@/features/auth/lib/auth-server";
+import type { AuthView } from "@/features/auth/types/auth";
+import { AuthScreen } from "@/screens/AuthScreen";
 
 const titles = {
   "sign-in": "Sign in",

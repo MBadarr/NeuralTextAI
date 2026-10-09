@@ -4,7 +4,7 @@ import {
   emptyAuthValues,
   passwordError,
   validateAuthValues,
-} from "@/lib/auth-validation";
+} from "@/features/auth/lib/auth-validation";
 
 describe("auth validation policy", () => {
   it("validates recovery codes separately from new passwords", () => {

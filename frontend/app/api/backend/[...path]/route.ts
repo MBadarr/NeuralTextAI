@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { auth } from "@/lib/auth-server";
+import { auth } from "@/features/auth/lib/auth-server";
 
 const backend = (
   process.env.API_URL ||

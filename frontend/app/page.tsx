@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
-import { SessionGuard } from "@/components/SessionGuard";
-import Workspace from "@/components/Workspace";
-import { readSession } from "@/lib/auth-server";
+import { SessionGuard } from "@/features/auth/components/SessionGuard";
+import { readSession } from "@/features/auth/lib/auth-server";
+import WorkspaceScreen from "@/screens/WorkspaceScreen";
 
 export default async function Home() {
   const { data: session, error } = await readSession();
@@ -10,7 +10,7 @@ export default async function Home() {
   if (!session.user.emailVerified) redirect("/auth/verify");
   return (
     <SessionGuard>
-      <Workspace />
+      <WorkspaceScreen />
     </SessionGuard>
   );
 }

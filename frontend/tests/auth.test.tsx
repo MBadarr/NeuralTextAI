@@ -7,10 +7,11 @@ import {
 } from "@testing-library/react";
 import { renderToString } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { AuthScreen, type AuthView } from "@/components/AuthScreen";
-import { SessionGuard } from "@/components/SessionGuard";
-import { ThemeProvider } from "@/components/ThemeProvider";
-import { useWorkspaceStore } from "@/lib/workspace-store";
+import { ThemeProvider } from "@/components/providers/ThemeProvider";
+import { SessionGuard } from "@/features/auth/components/SessionGuard";
+import type { AuthView } from "@/features/auth/types/auth";
+import { useWorkspaceStore } from "@/features/workspace/store/workspace-store";
+import { AuthScreen } from "@/screens/AuthScreen";
 
 const mock = vi.hoisted(() => ({
   push: vi.fn(),
@@ -35,7 +36,7 @@ vi.mock("next/navigation", () => ({
     refresh: mock.refresh,
   }),
 }));
-vi.mock("@/lib/auth-client", () => ({
+vi.mock("@/features/auth/lib/auth-client", () => ({
   authClient: {
     signUp: { email: mock.signup },
     signIn: { email: mock.login, social: mock.social, emailOtp: mock.otpLogin },

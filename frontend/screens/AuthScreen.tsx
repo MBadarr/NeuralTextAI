@@ -3,27 +3,23 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useEffect, useRef, useState } from "react";
-import { AuthInput } from "@/components/AuthInput";
-import { FieldError } from "@/components/FieldError";
-import { Icon } from "@/components/Icon";
-import { LoadingIndicator } from "@/components/LoadingIndicator";
-import { PasswordRecoveryForm } from "@/components/PasswordRecoveryForm";
-import { ThemeToggle } from "@/components/ThemeProvider";
-import { authClient } from "@/lib/auth-client";
+import { ThemeToggle } from "@/components/theme/ThemeToggle";
+import { PasswordRecoveryForm } from "@/features/auth/components/PasswordRecoveryForm";
+import { useAuthValidation } from "@/features/auth/hooks/use-auth-validation";
+import { authClient } from "@/features/auth/lib/auth-client";
 import {
   authErrorClass,
   authFieldClass,
   authMessageClass,
   authSubmitClass,
-} from "@/lib/auth-styles";
-import { useAuthValidation } from "@/lib/use-auth-validation";
+} from "@/features/auth/lib/auth-styles";
+import type { AuthView } from "@/features/auth/types/auth";
+import { Button } from "@/ui/Button";
+import { FieldError } from "@/ui/FieldError";
+import { Icon } from "@/ui/Icon";
+import { Input } from "@/ui/Input";
+import { LoadingIndicator } from "@/ui/LoadingIndicator";
 
-export type AuthView =
-  | "sign-in"
-  | "sign-up"
-  | "verify"
-  | "forgot-password"
-  | "reset-password";
 type Verification = {
   email: string;
   type: "email-verification" | "sign-in";
@@ -185,9 +181,9 @@ export function AuthScreen({
           verificationType === "sign-in"
             ? await authClient.signIn.emailOtp({ email: targetEmail, otp })
             : await authClient.emailOtp.verifyEmail({
-              email: targetEmail,
-              otp,
-            });
+                email: targetEmail,
+                otp,
+              });
         checkError(result);
         await openWorkspace();
       } else if (signup) {
@@ -361,7 +357,7 @@ export function AuthScreen({
           )}
           {!verify && !recovery && (
             <>
-              <button
+              <Button
                 type="button"
                 className="flex min-h-11.75 w-full cursor-pointer items-center justify-center gap-2.75 rounded-[10px] border border-workspace-border bg-workspace-surface text-xs font-semibold text-workspace-text hover:border-workspace-accent disabled:cursor-wait disabled:opacity-60"
                 disabled={busy || !ready}
@@ -379,7 +375,7 @@ export function AuthScreen({
                   />
                 </svg>
                 Continue with Google
-              </button>
+              </Button>
               <div className="my-6 flex items-center gap-3.75 text-[10px] text-workspace-muted before:h-px before:flex-1 before:bg-workspace-border before:content-[''] after:h-px after:flex-1 after:bg-workspace-border after:content-['']">
                 <span>or continue with email</span>
               </div>
@@ -406,7 +402,8 @@ export function AuthScreen({
                   {signup && (
                     <div className={authFieldClass}>
                       <label htmlFor="name">Full name</label>
-                      <AuthInput
+                      <Input
+                        variant="auth"
                         id="name"
                         name="name"
                         {...validation.bind("name")}
@@ -424,7 +421,8 @@ export function AuthScreen({
                   )}
                   <div className={authFieldClass}>
                     <label htmlFor="email">Email address</label>
-                    <AuthInput
+                    <Input
+                      variant="auth"
                       id="email"
                       name="email"
                       {...validation.bind("email")}
@@ -442,7 +440,7 @@ export function AuthScreen({
                   {verify ? (
                     <div className={authFieldClass}>
                       <label htmlFor="otp">Verification code</label>
-                      <AuthInput
+                      <Input
                         id="otp"
                         name="otp"
                         {...validation.bind("otp")}
@@ -468,7 +466,8 @@ export function AuthScreen({
                     <div className={authFieldClass}>
                       <label htmlFor="password">Password</label>
                       <div className="relative [&>button]:absolute [&>button]:top-0 [&>button]:right-3.25 [&>button]:h-11.75 [&>button]:cursor-pointer [&>button]:text-[11px] [&>button]:font-semibold [&>button]:text-workspace-accent [&>button]:disabled:cursor-wait [&>button]:disabled:opacity-60">
-                        <AuthInput
+                        <Input
+                          variant="auth"
                           id="password"
                           name="password"
                           {...validation.bind("password")}
@@ -491,7 +490,7 @@ export function AuthScreen({
                               : "password-error"
                           }
                         />
-                        <button
+                        <Button
                           type="button"
                           onClick={() => setShowPassword(!showPassword)}
                           aria-label={
@@ -499,7 +498,7 @@ export function AuthScreen({
                           }
                         >
                           {showPassword ? "Hide" : "Show"}
-                        </button>
+                        </Button>
                       </div>
                       {signup && (
                         <small id="password-help">
@@ -536,7 +535,7 @@ export function AuthScreen({
                     </Link>
                   </div>
                 )}
-                <button
+                <Button
                   className={authSubmitClass}
                   type="submit"
                   disabled={busy || !ready}
@@ -551,13 +550,13 @@ export function AuthScreen({
                     "Sign in"
                   )}
                   {ready && !busy && <span aria-hidden="true">→</span>}
-                </button>
+                </Button>
               </form>
               {verify ? (
                 <>
                   <p className="mt-6 text-center text-xs leading-[1.7] text-workspace-muted [&>a]:cursor-pointer [&>a]:font-semibold [&>a]:text-workspace-accent [&>button]:cursor-pointer [&>button]:font-semibold [&>button]:text-workspace-accent [&>button]:disabled:cursor-default [&>button]:disabled:opacity-60">
                     No code yet?{" "}
-                    <button
+                    <Button
                       type="button"
                       disabled={busy || !ready || cooldown > 0 || !email.trim()}
                       onClick={() => {
@@ -576,7 +575,7 @@ export function AuthScreen({
                       {cooldown > 0
                         ? `Resend in ${cooldown}s`
                         : "Send a new code"}
-                    </button>
+                    </Button>
                   </p>
                   <Link
                     className="mx-auto mt-4.25 block w-fit cursor-pointer text-center text-[11px] text-workspace-accent disabled:cursor-default disabled:opacity-60"
@@ -594,7 +593,7 @@ export function AuthScreen({
                     </Link>
                   </p>
                   {!signup && (
-                    <button
+                    <Button
                       className="mx-auto mt-4.25 block w-fit cursor-pointer text-center text-[11px] text-workspace-accent disabled:cursor-default disabled:opacity-60"
                       type="button"
                       disabled={busy || !ready}
@@ -612,7 +611,7 @@ export function AuthScreen({
                       }}
                     >
                       Sign in with an email code instead
-                    </button>
+                    </Button>
                   )}
                 </>
               )}

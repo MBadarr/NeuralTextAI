@@ -1,7 +1,8 @@
 "use client";
 
-import { Icon, type IconName } from "@/components/Icon";
-import { useWorkspaceStore } from "@/lib/workspace-store";
+import { useWorkspaceStore } from "@/features/workspace/store/workspace-store";
+import { Button } from "@/ui/Button";
+import { Icon, type IconName } from "@/ui/Icon";
 
 const groups = [
   {
@@ -45,7 +46,7 @@ export function Sidebar() {
   return (
     <>
       {mobileOpen && (
-        <button
+        <Button
           type="button"
           aria-label="Close navigation"
           onClick={closeMobile}
@@ -63,7 +64,7 @@ export function Sidebar() {
           <span className={collapsed ? "lg:hidden" : ""}>
             Neural<span className="text-workspace-accent">TextAI</span>
           </span>
-          <button
+          <Button
             type="button"
             aria-label={collapsed ? "Expand navigation" : "Minimize navigation"}
             title={collapsed ? "Expand navigation" : "Minimize navigation"}
@@ -71,15 +72,15 @@ export function Sidebar() {
             className="ml-auto flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-workspace-border text-sm font-bold text-workspace-muted transition-all duration-200 hover:scale-105 hover:bg-workspace-hover hover:text-workspace-accent active:scale-95"
           >
             {collapsed ? "»" : "«"}
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
             aria-label="Close navigation"
             onClick={closeMobile}
             className="ml-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-lg text-workspace-muted hover:bg-workspace-hover hover:text-workspace-accent lg:hidden"
           >
             ×
-          </button>
+          </Button>
         </div>
         <div className="mb-6.75 flex items-center gap-2 rounded-[10px] border border-workspace-border bg-workspace-bg p-2.5">
           <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-workspace-highlight text-xs font-extrabold text-workspace-accent">
@@ -103,7 +104,7 @@ export function Sidebar() {
                 {group.label}
               </p>
               {group.items.map(([label, icon]) => (
-                <button
+                <Button
                   type="button"
                   key={label}
                   onClick={() => {
@@ -113,7 +114,7 @@ export function Sidebar() {
                 >
                   <Icon name={icon as IconName} />
                   <span className={collapsed ? "lg:hidden" : ""}>{label}</span>
-                </button>
+                </Button>
               ))}
             </div>
           ))}

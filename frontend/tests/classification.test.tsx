@@ -1,12 +1,15 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { AnalysisResults } from "@/components/AnalysisResults";
-import { ClassificationResults } from "@/components/ClassificationResults";
-import { TextTool } from "@/components/TextTool";
-import type { AnalysisResult, ClassificationResult } from "@/types/analysis";
+import { AnalysisResults } from "@/features/analysis/components/AnalysisResults";
+import { ClassificationResults } from "@/features/analysis/components/ClassificationResults";
+import { TextTool } from "@/features/analysis/components/TextTool";
+import type {
+  AnalysisResult,
+  ClassificationResult,
+} from "@/features/analysis/types/analysis";
 
 const { runTextTool } = vi.hoisted(() => ({ runTextTool: vi.fn() }));
-vi.mock("@/lib/api", () => ({ runTextTool }));
+vi.mock("@/features/analysis/api/analysis-api", () => ({ runTextTool }));
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();

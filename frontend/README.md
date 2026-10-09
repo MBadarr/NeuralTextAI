@@ -96,30 +96,48 @@ the root uses Tailwind color-scheme utilities to resolve those tokens.
 
 ## Frontend structure
 
-- `app/page.tsx`: server-side workspace session gate.
-- `app/auth/[view]/page.tsx`: authentication pages and OAuth callback.
-- `app/api/auth/[...path]/route.ts`: official Neon Auth handler.
-- `app/api/backend/[...path]/route.ts`: authenticated backend proxy.
-- `app/layout.tsx`: document metadata and font setup.
-- `app/globals.css`: Tailwind and themed, responsive authentication styles.
-- `components/Workspace.tsx`: existing dashboard shell and feature routing.
-- `components/AuthScreen.tsx`: signup, login and OTP forms.
-- `components/SessionGuard.tsx`: session updates and preference hydration.
-- `lib/auth-client.ts` / `lib/auth-server.ts`: Neon SDK configuration.
-- `components/Sidebar.tsx`: workspace navigation, desktop collapse, and mobile
-  drawer.
-- `components/Topbar.tsx`: breadcrumb, search with Ctrl/Cmd+K, live service status, and mobile menu.
-- `components/Overview.tsx`: live documents, insights, and entity breakdown.
-- `components/TextAnalyzer.tsx`: analysis, NER display, writing feedback, and
-  autocomplete controls.
-- `components/TextTool.tsx`: sentiment, summary, and plagiarism interfaces.
-- `components/FeaturePage.tsx`: documents, entity explorer, analytics,
-  semantic search, and model views.
-- `lib/api.ts`: typed API calls for every backend endpoint, error handling, and
-  network status messages.
-- `lib/workspace-store.ts`: Zustand store for active page, sidebar collapse,
-  mobile drawer, and global search query.
-- `types/analysis.ts`: TypeScript API response types.
+```text
+frontend/
+  app/                         Next.js routes, layouts, loading/error boundaries
+  screens/                     AuthScreen, WorkspaceScreen, OverviewScreen
+  features/
+    auth/
+      components/              PasswordRecoveryForm, SessionGuard
+      hooks/                   Form validation hook
+      lib/                     Neon client/server, configuration, validation, styles
+      types/                   Authentication view types
+    analysis/
+      api/                     Typed analysis and NLP tool calls
+      components/              Analyzer, text tools, analysis/classification results
+      types/                   API response models
+    workspace/
+      api/                     Documents, search, insights, models, service health
+      components/              FeatureContent for workspace views
+      store/                   Persisted Zustand navigation and preferences
+  components/
+    layout/                    Sidebar, Topbar
+    providers/                 ThemeProvider and useTheme
+    theme/                     ThemeToggle
+  ui/                          Button, Input, Textarea, Select, Icon,
+                               FieldError, LoadingIndicator
+  lib/                         Shared HTTP transport and error handling
+  tests/                       Authentication, session, theme, and NLP regressions
+  public/                      Static assets
+```
+
+`app` keeps routing and server session gates; screens compose the user-facing
+pages. Feature folders own domain-specific components, hooks, API functions,
+state, and types. Shared layout and provider components live in `components`.
+`ui` contains reusable native-control wrappers that preserve refs, accessibility
+attributes, event handlers, and existing Tailwind classes. Authentication inputs
+use the `auth` and `otp` variants; dashboard controls retain their existing styles.
+
+Import modules directly through the `@/` alias. Shared UI and HTTP transport do
+not import screens or features. Keep Neon server code behind its existing
+`server-only` boundary; client components import only the auth client. Routes,
+environment-variable names, cookie handling, and persisted storage keys remain
+the same. Add new domain behavior under its feature, and use screens for page
+composition rather than adding unrelated files to `components`.
 
 Navigation is shared through Zustand rather than duplicated component-local
 state. Selecting a page closes the mobile drawer, while desktop collapse and
@@ -143,7 +161,7 @@ feature views.
 - Analytics shows real processing times, entity types, languages, and sentiment.
 - Model status lists actual pipeline capabilities and vector availability.
 
-`components/AnalysisResults.tsx` is the shared result view used by the analyzer
+`features/analysis/components/AnalysisResults.tsx` is the shared result view used by the analyzer
 and saved documents. Browser JSON export works locally without uploading text.
 
 Verify with `pnpm test`, `pnpm lint`, `pnpm exec tsc --noEmit`, and `pnpm build`.

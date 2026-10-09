@@ -1,4 +1,4 @@
-import type { ClassificationResult } from "@/types/analysis";
+import type { ClassificationResult } from "@/features/analysis/types/analysis";
 
 export function ClassificationResults({
   result,

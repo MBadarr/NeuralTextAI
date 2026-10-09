@@ -1,14 +1,17 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ClassificationResults } from "@/components/ClassificationResults";
-import { runTextTool } from "@/lib/api";
+import { runTextTool } from "@/features/analysis/api/analysis-api";
+import { ClassificationResults } from "@/features/analysis/components/ClassificationResults";
 import type {
   ClassificationResult,
   PlagiarismResult,
   SentimentResult,
   SummaryResult,
-} from "@/types/analysis";
+} from "@/features/analysis/types/analysis";
+import { Button } from "@/ui/Button";
+import { Select } from "@/ui/Select";
+import { Textarea } from "@/ui/Textarea";
 
 const tools = {
   "Intent analysis": [
@@ -84,7 +87,7 @@ export function TextTool({ name }: { name: ToolName }) {
         <label htmlFor="tool-text" className="mt-4 block text-xs font-bold">
           Text
         </label>
-        <textarea
+        <Textarea
           id="tool-text"
           maxLength={100000}
           disabled={loading}
@@ -103,7 +106,7 @@ export function TextTool({ name }: { name: ToolName }) {
             htmlFor="summary-limit"
           >
             Summary sentences
-            <select
+            <Select
               id="summary-limit"
               value={sentenceLimit}
               disabled={loading}
@@ -118,7 +121,7 @@ export function TextTool({ name }: { name: ToolName }) {
                   {value}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
         )}
         {error && (
@@ -126,14 +129,14 @@ export function TextTool({ name }: { name: ToolName }) {
             {error}
           </p>
         )}
-        <button
+        <Button
           type="button"
           disabled={loading || !text.trim()}
           onClick={submit}
           className="mt-4 rounded-lg bg-workspace-primary px-4 py-3 text-sm font-bold text-workspace-on-primary disabled:opacity-50"
         >
           {loading ? "Processing..." : `Run ${name.toLowerCase()}`}
-        </button>
+        </Button>
       </section>
       <section className="space-y-4 rounded-xl border border-workspace-border bg-workspace-surface p-5 shadow-sm">
         <h2 className="text-sm font-bold">Result</h2>

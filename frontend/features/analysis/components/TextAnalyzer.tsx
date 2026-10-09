@@ -1,14 +1,20 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { AnalysisResults } from "@/components/AnalysisResults";
 import {
   analyzeText,
   getAutocomplete,
-  getHealth,
   getWritingFeedback,
-} from "@/lib/api";
-import type { AnalysisResult, WritingIssue } from "@/types/analysis";
+} from "@/features/analysis/api/analysis-api";
+import { AnalysisResults } from "@/features/analysis/components/AnalysisResults";
+import type {
+  AnalysisResult,
+  WritingIssue,
+} from "@/features/analysis/types/analysis";
+import { getHealth } from "@/features/workspace/api/workspace-api";
+import { Button } from "@/ui/Button";
+import { Input } from "@/ui/Input";
+import { Textarea } from "@/ui/Textarea";
 
 export function TextAnalyzer() {
   const [title, setTitle] = useState("");
@@ -142,7 +148,7 @@ export function TextAnalyzer() {
         >
           Title
         </label>
-        <input
+        <Input
           id="analysis-title"
           maxLength={120}
           disabled={loading}
@@ -154,7 +160,7 @@ export function TextAnalyzer() {
         <label htmlFor="analysis-text" className="mt-5 block text-xs font-bold">
           Text
         </label>
-        <textarea
+        <Textarea
           ref={textRef}
           id="analysis-text"
           maxLength={100000}
@@ -166,7 +172,7 @@ export function TextAnalyzer() {
         />
         <div className="mt-2 flex justify-between text-xs text-workspace-muted">
           <span>{text.length.toLocaleString()} / 100,000 characters</span>
-          <button
+          <Button
             type="button"
             disabled={loading}
             onClick={() =>
@@ -177,7 +183,7 @@ export function TextAnalyzer() {
             className="text-workspace-accent"
           >
             Try example
-          </button>
+          </Button>
         </div>
         {text.trim() && (
           <div className="mt-4 space-y-3 rounded-lg bg-workspace-subtle p-3">
@@ -205,14 +211,14 @@ export function TextAnalyzer() {
                   {issue.message}
                 </p>
                 {issue.replacement !== null && (
-                  <button
+                  <Button
                     type="button"
                     disabled={loading}
                     onClick={() => applyCorrection(issue)}
                     className="shrink-0 font-bold text-workspace-accent"
                   >
                     Apply
-                  </button>
+                  </Button>
                 )}
               </div>
             ))}
@@ -223,7 +229,7 @@ export function TextAnalyzer() {
             ))}
             <div className="flex flex-wrap gap-2">
               {suggestions.map((suggestion) => (
-                <button
+                <Button
                   type="button"
                   key={suggestion}
                   disabled={loading}
@@ -231,7 +237,7 @@ export function TextAnalyzer() {
                   className="rounded-full border border-workspace-accent-border px-3 py-2 text-xs text-workspace-accent"
                 >
                   {suggestion}
-                </button>
+                </Button>
               ))}
             </div>
             {!suggestions.length && feedbackStatus === "ready" && (
@@ -247,14 +253,14 @@ export function TextAnalyzer() {
             {error}
           </p>
         )}
-        <button
+        <Button
           type="button"
           disabled={loading || !text.trim()}
           onClick={submit}
           className="mt-5 rounded-lg bg-workspace-primary px-4 py-3 text-sm font-bold text-workspace-on-primary disabled:opacity-50"
         >
           {loading ? "Analyzing…" : "Analyze and save"}
-        </button>
+        </Button>
       </section>
       <section className="rounded-xl border border-workspace-border bg-workspace-surface p-5 shadow-sm">
         {result ? (

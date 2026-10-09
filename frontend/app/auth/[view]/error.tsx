@@ -1,7 +1,11 @@
 "use client";
 
-import { ThemeToggle } from "@/components/ThemeProvider";
-import { authFallbackClass, authSubmitClass } from "@/lib/auth-styles";
+import { ThemeToggle } from "@/components/theme/ThemeToggle";
+import {
+  authFallbackClass,
+  authSubmitClass,
+} from "@/features/auth/lib/auth-styles";
+import { Button } from "@/ui/Button";
 
 export default function AuthError({ reset }: { reset: () => void }) {
   return (
@@ -11,9 +15,9 @@ export default function AuthError({ reset }: { reset: () => void }) {
       <p>
         Authentication is temporarily unavailable. Please try again in a moment.
       </p>
-      <button className={authSubmitClass} type="button" onClick={reset}>
+      <Button className={authSubmitClass} type="button" onClick={reset}>
         Try again
-      </button>
+      </Button>
     </main>
   );
 }

@@ -7,7 +7,10 @@ import {
   parseCookieValue,
 } from "@neondatabase/auth/server";
 import { headers } from "next/headers";
-import { requestOrigin, validateAuthBaseUrl } from "@/lib/auth-config";
+import {
+  requestOrigin,
+  validateAuthBaseUrl,
+} from "@/features/auth/lib/auth-config";
 
 const baseUrl = validateAuthBaseUrl(process.env.NEON_AUTH_BASE_URL);
 const secret = process.env.NEON_AUTH_COOKIE_SECRET;

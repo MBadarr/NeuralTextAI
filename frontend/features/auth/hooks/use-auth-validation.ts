@@ -7,7 +7,7 @@ import {
   type AuthValues,
   emptyAuthValues,
   validateAuthValues,
-} from "@/lib/auth-validation";
+} from "@/features/auth/lib/auth-validation";
 
 export function useAuthValidation(mode: AuthFormMode, initialEmail = "") {
   const [values, setValues] = useState<AuthValues>({

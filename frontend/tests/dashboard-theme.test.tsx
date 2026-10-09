@@ -6,16 +6,16 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ThemeProvider } from "@/components/ThemeProvider";
-import Workspace from "@/components/Workspace";
-import { useWorkspaceStore } from "@/lib/workspace-store";
+import { ThemeProvider } from "@/components/providers/ThemeProvider";
+import { useWorkspaceStore } from "@/features/workspace/store/workspace-store";
+import WorkspaceScreen from "@/screens/WorkspaceScreen";
 
-vi.mock("@/lib/auth-client", () => ({
+vi.mock("@/features/auth/lib/auth-client", () => ({
   authClient: {
     useSession: () => ({ data: { user: { name: "Test User" } } }),
   },
 }));
-vi.mock("@/lib/api", () => ({
+vi.mock("@/features/workspace/api/workspace-api", () => ({
   getDocuments: async () => [],
   getInsights: async () => ({ total_documents: 0 }),
   getModels: async () => [],
@@ -42,7 +42,7 @@ describe("dashboard theme", () => {
   it("keeps dark mode through navigation and restores it after remount", async () => {
     const first = render(
       <ThemeProvider initialTheme="light">
-        <Workspace />
+        <WorkspaceScreen />
       </ThemeProvider>,
     );
     fireEvent.click(
@@ -58,7 +58,7 @@ describe("dashboard theme", () => {
     first.unmount();
     render(
       <ThemeProvider initialTheme="dark">
-        <Workspace />
+        <WorkspaceScreen />
       </ThemeProvider>,
     );
     expect(document.documentElement.dataset.theme).toBe("dark");
@@ -85,7 +85,7 @@ describe("dashboard theme", () => {
     });
     render(
       <ThemeProvider initialTheme="system">
-        <Workspace />
+        <WorkspaceScreen />
       </ThemeProvider>,
     );
     expect(document.documentElement.dataset.theme).toBe("light");

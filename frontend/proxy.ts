@@ -1,4 +1,4 @@
-import { auth } from "@/lib/auth-server";
+import { auth } from "@/features/auth/lib/auth-server";
 
 // Neon exchanges the OAuth verifier and renews cookies here, before RSC rendering.
 export default auth.middleware({ loginUrl: "/auth/sign-in" });

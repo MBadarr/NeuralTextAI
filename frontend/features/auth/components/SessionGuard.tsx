@@ -2,10 +2,14 @@
 
 import { useRouter } from "next/navigation";
 import { type ReactNode, useEffect, useState } from "react";
-import { LoadingIndicator } from "@/components/LoadingIndicator";
-import { authClient } from "@/lib/auth-client";
-import { authFallbackClass, authSubmitClass } from "@/lib/auth-styles";
-import { useWorkspaceStore } from "@/lib/workspace-store";
+import { authClient } from "@/features/auth/lib/auth-client";
+import {
+  authFallbackClass,
+  authSubmitClass,
+} from "@/features/auth/lib/auth-styles";
+import { useWorkspaceStore } from "@/features/workspace/store/workspace-store";
+import { Button } from "@/ui/Button";
+import { LoadingIndicator } from "@/ui/LoadingIndicator";
 
 export function SessionGuard({ children }: { children: ReactNode }) {
   const router = useRouter();
@@ -42,7 +46,7 @@ export function SessionGuard({ children }: { children: ReactNode }) {
       <main className={authFallbackClass}>
         <h1>Session check unavailable</h1>
         <p>We couldn’t confirm your session. Please retry.</p>
-        <button
+        <Button
           type="button"
           className={authSubmitClass}
           onClick={() => {
@@ -50,7 +54,7 @@ export function SessionGuard({ children }: { children: ReactNode }) {
           }}
         >
           Try again
-        </button>
+        </Button>
       </main>
     );
   if (isPending || !data?.user.emailVerified || hydratedUser !== userId)

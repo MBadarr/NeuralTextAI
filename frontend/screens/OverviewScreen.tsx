@@ -1,10 +1,16 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-
-import { Icon, type IconName } from "@/components/Icon";
-import { getDocuments, getInsights } from "@/lib/api";
-import type { AnalysisResult, Insights } from "@/types/analysis";
+import type {
+  AnalysisResult,
+  Insights,
+} from "@/features/analysis/types/analysis";
+import {
+  getDocuments,
+  getInsights,
+} from "@/features/workspace/api/workspace-api";
+import { Button } from "@/ui/Button";
+import { Icon, type IconName } from "@/ui/Icon";
 
 const cards: Array<[string, string, IconName, string]> = [
   ["Documents analyzed", "violet", "file", "0"],
@@ -13,7 +19,7 @@ const cards: Array<[string, string, IconName, string]> = [
   ["Avg. processing time", "green", "chart", "—"],
 ];
 
-export function Overview({
+export function OverviewScreen({
   query,
   onNavigate,
 }: {
@@ -89,14 +95,14 @@ export function Overview({
             Here&apos;s what&apos;s happening across your NLP workspace.
           </p>
         </div>
-        <button
+        <Button
           type="button"
           onClick={() => onNavigate("Text analyzer")}
           className="flex items-center gap-2 rounded-lg bg-workspace-primary px-4 py-3 text-xs font-bold text-workspace-on-primary shadow-lg shadow-[#7357ef2e]"
         >
           <Icon name="scan" size={16} /> New analysis{" "}
           <span className="border-l border-white/30 pl-2 text-base">+</span>
-        </button>
+        </Button>
       </div>
       {error && (
         <p className="rounded-lg bg-workspace-danger-soft p-3 text-xs text-workspace-danger">
@@ -149,7 +155,7 @@ export function Overview({
               "spark",
             ],
           ].map(([label, description, icon]) => (
-            <button
+            <Button
               type="button"
               key={label}
               onClick={() => onNavigate(label)}
@@ -164,7 +170,7 @@ export function Overview({
                   {description}
                 </span>
               </span>
-            </button>
+            </Button>
           ))}
         </div>
       </section>
@@ -177,13 +183,13 @@ export function Overview({
                 Your latest analyzed documents
               </p>
             </div>
-            <button
+            <Button
               type="button"
               onClick={() => onNavigate("Documents")}
               className="text-[11px] font-bold text-workspace-accent"
             >
               View all →
-            </button>
+            </Button>
           </div>
           <div className="mt-5 divide-y divide-workspace-border">
             {filteredDocuments.slice(0, 5).map((document) => (

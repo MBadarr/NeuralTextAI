@@ -105,7 +105,7 @@ describe("Neon server integration", () => {
       Response.json({ message: "Unavailable" }, { status: 503 }),
     );
     vi.stubGlobal("fetch", fetchMock);
-    const { readSession } = await import("@/lib/auth-server");
+    const { readSession } = await import("@/features/auth/lib/auth-server");
     expect(await readSession()).toEqual({ data: null, error: null });
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -116,7 +116,7 @@ describe("Neon server integration", () => {
       Response.json({ message: "Expired session" }, { status: 401 }),
     );
     vi.stubGlobal("fetch", fetchMock);
-    const { readSession } = await import("@/lib/auth-server");
+    const { readSession } = await import("@/features/auth/lib/auth-server");
     expect(await readSession()).toEqual({ data: null, error: null });
     fetchMock.mockImplementation(async () =>
       Response.json({ message: "Unavailable" }, { status: 503 }),
@@ -191,7 +191,7 @@ describe("Neon server integration", () => {
       }),
     );
     vi.stubGlobal("fetch", fetchMock);
-    const { readSession } = await import("@/lib/auth-server");
+    const { readSession } = await import("@/features/auth/lib/auth-server");
     const result = await readSession();
     expect(result.error).toBeNull();
     expect(result.data?.user.id).toBe("user-id");

@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Icon } from "@/components/Icon";
-import { ThemeToggle } from "@/components/ThemeProvider";
-import { getHealth } from "@/lib/api";
-import { authClient } from "@/lib/auth-client";
-import { authErrorClass } from "@/lib/auth-styles";
-import { useWorkspaceStore } from "@/lib/workspace-store";
+import { ThemeToggle } from "@/components/theme/ThemeToggle";
+import { authClient } from "@/features/auth/lib/auth-client";
+import { authErrorClass } from "@/features/auth/lib/auth-styles";
+import { getHealth } from "@/features/workspace/api/workspace-api";
+import { useWorkspaceStore } from "@/features/workspace/store/workspace-store";
+import { Button } from "@/ui/Button";
+import { Icon } from "@/ui/Icon";
+import { Input } from "@/ui/Input";
 
 export function Topbar() {
   const { active, query, setQuery, toggleMobile } = useWorkspaceStore();
@@ -59,14 +61,14 @@ export function Topbar() {
   }
   return (
     <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b border-workspace-border bg-workspace-surface/95 px-3.5 backdrop-blur-md sm:h-18 sm:px-4.5 lg:px-10.5">
-      <button
+      <Button
         type="button"
         className="block text-workspace-muted lg:hidden"
         onClick={toggleMobile}
         aria-label="Toggle navigation"
       >
         <span className="text-lg transition-transform duration-200">☰</span>
-      </button>
+      </Button>
       <div className="flex items-center gap-2.5 text-xs text-workspace-muted">
         <span>Workspace</span>
         <b>/</b>
@@ -81,14 +83,14 @@ export function Topbar() {
           {session?.user.name || session?.user.email}
         </span>
         <div className="relative">
-          <button
+          <Button
             type="button"
             className="text-xs text-workspace-accent"
             disabled={signingOut}
             onClick={signOut}
           >
             {signingOut ? "Signing out…" : "Sign out"}
-          </button>
+          </Button>
           {signOutError && (
             <p
               role="alert"
@@ -100,7 +102,7 @@ export function Topbar() {
         </div>
         <div className="hidden w-57.5 items-center gap-2 rounded-lg border border-workspace-border bg-workspace-bg p-2.5 text-workspace-muted sm:flex">
           <Icon name="search" size={16} />
-          <input
+          <Input
             ref={inputRef}
             aria-label="Search workspace documents"
             maxLength={1000}
@@ -114,14 +116,14 @@ export function Topbar() {
           </kbd>
         </div>
         <div className="relative">
-          <button
+          <Button
             type="button"
             onClick={() => (showStatus ? setShowStatus(false) : checkStatus())}
             aria-expanded={showStatus}
             className="text-xs text-workspace-accent"
           >
             Service status
-          </button>
+          </Button>
           {showStatus && (
             <output className="absolute right-0 top-8 w-64 rounded-lg border border-workspace-border bg-workspace-surface p-3 text-xs leading-6 shadow-lg">
               {status}

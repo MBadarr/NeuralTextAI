@@ -1,24 +1,29 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AnalysisResults } from "@/components/AnalysisResults";
-import { LoadingIndicator } from "@/components/LoadingIndicator";
-import { TextAnalyzer } from "@/components/TextAnalyzer";
-import { TextTool, type ToolName } from "@/components/TextTool";
+import { AnalysisResults } from "@/features/analysis/components/AnalysisResults";
+import { TextAnalyzer } from "@/features/analysis/components/TextAnalyzer";
+import {
+  TextTool,
+  type ToolName,
+} from "@/features/analysis/components/TextTool";
+import type {
+  AnalysisResult,
+  Insights,
+  ModelInfo,
+  SearchResult,
+} from "@/features/analysis/types/analysis";
 import {
   deleteDocument,
   getDocuments,
   getInsights,
   getModels,
   searchDocuments,
-} from "@/lib/api";
-import { useWorkspaceStore } from "@/lib/workspace-store";
-import type {
-  AnalysisResult,
-  Insights,
-  ModelInfo,
-  SearchResult,
-} from "@/types/analysis";
+} from "@/features/workspace/api/workspace-api";
+import { useWorkspaceStore } from "@/features/workspace/store/workspace-store";
+import { Button } from "@/ui/Button";
+import { Input } from "@/ui/Input";
+import { LoadingIndicator } from "@/ui/LoadingIndicator";
 
 const analyzerPages = [
   "Text analyzer",
@@ -70,7 +75,7 @@ function Breakdown({
   );
 }
 
-export function FeaturePage({ active }: { active: string }) {
+export function FeatureContent({ active }: { active: string }) {
   const { query, setQuery } = useWorkspaceStore();
   const [documents, setDocuments] = useState<AnalysisResult[]>([]);
   const [insights, setInsights] = useState<Insights | null>(null);
@@ -193,7 +198,7 @@ export function FeaturePage({ active }: { active: string }) {
               key={document.id}
               className="flex items-center justify-between gap-3 border-b border-workspace-border py-3"
             >
-              <button
+              <Button
                 type="button"
                 onClick={() => setSelected(document)}
                 className="min-w-0 text-left"
@@ -203,15 +208,15 @@ export function FeaturePage({ active }: { active: string }) {
                   {document.word_count} words · {document.entities.length}{" "}
                   entities · {new Date(document.created_at).toLocaleString()}
                 </span>
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
                 disabled={deleting !== null}
                 onClick={() => remove(document.id)}
                 className="text-xs text-workspace-danger disabled:opacity-50"
               >
                 {deleting === document.id ? "Deleting…" : "Delete"}
-              </button>
+              </Button>
             </div>
           ))}
           {!loading && !error && !filtered.length && (
@@ -226,7 +231,7 @@ export function FeaturePage({ active }: { active: string }) {
           <label htmlFor="semantic-query" className="block text-xs">
             Find documents by topic or meaning
           </label>
-          <input
+          <Input
             id="semantic-query"
             maxLength={1000}
             className="w-full rounded-lg border border-workspace-border p-3 text-sm"
@@ -246,7 +251,7 @@ export function FeaturePage({ active }: { active: string }) {
                 </p>
               ))}
               {search.results.map(({ document, score }) => (
-                <button
+                <Button
                   type="button"
                   key={document.id}
                   onClick={() => setSelected(document)}
@@ -261,7 +266,7 @@ export function FeaturePage({ active }: { active: string }) {
                   <p className="mt-2 line-clamp-3 text-xs leading-6 text-workspace-muted">
                     {document.text}
                   </p>
-                </button>
+                </Button>
               ))}
               {!search.results.length && (
                 <p className="text-sm">No matching documents.</p>
@@ -353,13 +358,13 @@ export function FeaturePage({ active }: { active: string }) {
       )}
       {selected && (
         <div className="border-t border-workspace-border pt-5">
-          <button
+          <Button
             type="button"
             onClick={() => setSelected(null)}
             className="mb-4 text-xs text-workspace-accent"
           >
             Close document
-          </button>
+          </Button>
           <AnalysisResults key={selected.id} result={selected} />
         </div>
       )}

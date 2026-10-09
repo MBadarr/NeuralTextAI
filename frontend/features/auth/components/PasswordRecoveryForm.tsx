@@ -3,17 +3,18 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useEffect, useRef, useState } from "react";
-import { AuthInput } from "@/components/AuthInput";
-import { FieldError } from "@/components/FieldError";
-import { LoadingIndicator } from "@/components/LoadingIndicator";
-import { authClient } from "@/lib/auth-client";
+import { useAuthValidation } from "@/features/auth/hooks/use-auth-validation";
+import { authClient } from "@/features/auth/lib/auth-client";
 import {
   authErrorClass,
   authFieldClass,
   authMessageClass,
   authSubmitClass,
-} from "@/lib/auth-styles";
-import { useAuthValidation } from "@/lib/use-auth-validation";
+} from "@/features/auth/lib/auth-styles";
+import { Button } from "@/ui/Button";
+import { FieldError } from "@/ui/FieldError";
+import { Input } from "@/ui/Input";
+import { LoadingIndicator } from "@/ui/LoadingIndicator";
 
 const recoveryKey = "neuraltext-password-recovery";
 const resendDelay = 60_000;
@@ -254,7 +255,8 @@ export function PasswordRecoveryForm({
         <fieldset disabled={busy || !ready}>
           <div className={authFieldClass}>
             <label htmlFor="recovery-email">Email address</label>
-            <AuthInput
+            <Input
+              variant="auth"
               id="recovery-email"
               name="email"
               {...validation.bind("email", "recovery-email")}
@@ -273,7 +275,7 @@ export function PasswordRecoveryForm({
           {codeStep && (
             <div className={authFieldClass}>
               <label htmlFor="reset-otp">Reset code</label>
-              <AuthInput
+              <Input
                 id="reset-otp"
                 name="otp"
                 {...validation.bind("otp", "reset-otp")}
@@ -302,7 +304,8 @@ export function PasswordRecoveryForm({
               <div className={authFieldClass}>
                 <label htmlFor="reset-password">New password</label>
                 <div className="relative [&>button]:absolute [&>button]:top-0 [&>button]:right-3.25 [&>button]:h-11.75 [&>button]:cursor-pointer [&>button]:text-[11px] [&>button]:font-semibold [&>button]:text-workspace-accent [&>button]:disabled:cursor-wait [&>button]:disabled:opacity-60">
-                  <AuthInput
+                  <Input
+                    variant="auth"
                     id="reset-password"
                     name="password"
                     {...validation.bind("password", "reset-password")}
@@ -315,7 +318,7 @@ export function PasswordRecoveryForm({
                     placeholder="Create a strong password"
                     aria-describedby="reset-password-help reset-password-error"
                   />
-                  <button
+                  <Button
                     type="button"
                     aria-label={
                       showPassword ? "Hide password" : "Show password"
@@ -323,7 +326,7 @@ export function PasswordRecoveryForm({
                     onClick={() => setShowPassword(!showPassword)}
                   >
                     {showPassword ? "Hide" : "Show"}
-                  </button>
+                  </Button>
                 </div>
                 <small id="reset-password-help">
                   Use at least 8 characters.
@@ -335,7 +338,8 @@ export function PasswordRecoveryForm({
               </div>
               <div className={authFieldClass}>
                 <label htmlFor="confirm-password">Confirm new password</label>
-                <AuthInput
+                <Input
+                  variant="auth"
                   id="confirm-password"
                   name="confirmPassword"
                   {...validation.bind("confirmPassword", "confirm-password")}
@@ -365,7 +369,7 @@ export function PasswordRecoveryForm({
           </p>
         )}
         {notice && <output className={authMessageClass}>{notice}</output>}
-        <button
+        <Button
           className={authSubmitClass}
           type="submit"
           disabled={busy || !ready || (!reset && cooldown > 0)}
@@ -390,12 +394,12 @@ export function PasswordRecoveryForm({
           ) : (
             "Send reset code"
           )}
-        </button>
+        </Button>
       </form>
       {codeStep && (
         <p className="mt-6 text-center text-xs leading-[1.7] text-workspace-muted [&>a]:cursor-pointer [&>a]:font-semibold [&>a]:text-workspace-accent [&>button]:cursor-pointer [&>button]:font-semibold [&>button]:text-workspace-accent [&>button]:disabled:cursor-default [&>button]:disabled:opacity-60">
           No code yet?{" "}
-          <button
+          <Button
             type="button"
             disabled={busy || !ready || cooldown > 0 || !email.trim()}
             onClick={() => {
@@ -412,7 +416,7 @@ export function PasswordRecoveryForm({
             }}
           >
             {cooldown > 0 ? `Resend in ${cooldown}s` : "Send a new reset code"}
-          </button>
+          </Button>
         </p>
       )}
       {!reset && (
@@ -430,7 +434,7 @@ export function PasswordRecoveryForm({
         </Link>
       )}
       {passwordStep && (
-        <button
+        <Button
           type="button"
           disabled={busy}
           className="mx-auto mt-4 block text-[11px] text-workspace-accent hover:underline disabled:opacity-60"
@@ -441,7 +445,7 @@ export function PasswordRecoveryForm({
           }}
         >
           Enter a different reset code
-        </button>
+        </Button>
       )}
       <Link
         className="mx-auto mt-4.25 block w-fit cursor-pointer text-center text-[11px] text-workspace-accent disabled:cursor-default disabled:opacity-60"

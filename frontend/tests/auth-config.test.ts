@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { requestOrigin, validateAuthBaseUrl } from "@/lib/auth-config";
+import {
+  requestOrigin,
+  validateAuthBaseUrl,
+} from "@/features/auth/lib/auth-config";
 
 describe("auth provider configuration", () => {
   it("rejects a JWKS URL used in place of the auth base URL", () => {
