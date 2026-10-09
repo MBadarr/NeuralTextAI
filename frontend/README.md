@@ -42,7 +42,7 @@ when there is no session cookie; expired sessions return to sign-in.
 - `/auth/verify`: code entry, resend cooldown, and recovery after refresh.
 - `/auth/callback`: server-validated OAuth completion.
 - `/auth/forgot-password`: request a Neon password-reset email code.
-- `/auth/reset-password`: email, six-digit reset code, new password, and confirmation.
+- `/auth/reset-password`: verify the six-digit reset code, then enter a new password and confirmation.
 - `/`: server-protected workspace; unverified users return to verification.
 
 Neon's SDK manages HTTP-only session cookies and renewal. Authentication is
@@ -56,8 +56,11 @@ rendering. Server Components use a read-only SDK context for live session
 checks, since Next.js prohibits cookie writes during server rendering. The OTP
 page remains public so accounts without a session can verify their email.
 
-Password recovery uses `emailOtp.requestPasswordReset` and
-`emailOtp.resetPassword` through the same-origin Neon Auth handler. Recovery
+Password recovery uses `emailOtp.requestPasswordReset`,
+`emailOtp.checkVerificationOtp` with type `forget-password`, and
+`emailOtp.resetPassword` through the same-origin Neon Auth handler. The password
+form appears only after Neon accepts the code; Neon checks it again when saving
+the password. Refreshing returns to code entry. Recovery
 pages remain available without a session. Only the pending email and resend
 timestamp are stored; reset codes and passwords are never persisted. Resends
 have a 60-second UI cooldown, with provider expiry and attempt limits enforced

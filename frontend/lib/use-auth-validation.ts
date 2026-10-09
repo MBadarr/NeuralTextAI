@@ -56,6 +56,7 @@ export function useAuthValidation(mode: AuthFormMode, initialEmail = "") {
     return Object.values(invalid)[0] || "";
   }
   function clearPasswords() {
+    setTouched({});
     setValues((current) => ({
       ...current,
       password: "",
@@ -71,5 +72,6 @@ export function useAuthValidation(mode: AuthFormMode, initialEmail = "") {
     bind,
     validate,
     clearPasswords,
+    resetFeedback: () => setTouched({}),
   };
 }

@@ -3,6 +3,7 @@ export type AuthFormMode =
   | "sign-up"
   | "verify"
   | "forgot-password"
+  | "reset-code"
   | "reset-password";
 export type AuthField =
   | "name"
@@ -50,7 +51,7 @@ export function validateAuthValues(
     const password = passwordError(values.password);
     if (password) errors.password = password;
   }
-  if (mode === "verify" || mode === "reset-password") {
+  if (mode === "verify" || mode === "reset-code") {
     if (!/^\d{6}$/.test(values.otp.trim()))
       errors.otp = "Enter the 6-digit code from your email.";
   }

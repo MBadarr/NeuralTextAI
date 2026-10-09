@@ -36,7 +36,19 @@ export function PasswordRecoveryForm({
 }) {
   const router = useRouter();
   const reset = view === "reset-password";
-  const validation = useAuthValidation(view);
+  const [verifiedCode, setVerifiedCode] = useState<{
+    email: string;
+    otp: string;
+  } | null>(null);
+  const passwordStep = reset && verifiedCode !== null;
+  const codeStep = reset && !passwordStep;
+  const validation = useAuthValidation(
+    reset
+      ? passwordStep
+        ? "reset-password"
+        : "reset-code"
+      : "forgot-password",
+  );
   const email = validation.values.email;
   const setEmail = validation.setEmail;
   const [busy, setBusy] = useState(false);
@@ -44,6 +56,8 @@ export function PasswordRecoveryForm({
   const [notice, setNotice] = useState("");
   const [cooldown, setCooldown] = useState(0);
   const [showPassword, setShowPassword] = useState(false);
+  const [hasPendingEmail, setHasPendingEmail] = useState(false);
+  const headingRef = useRef<HTMLHeadingElement>(null);
   const errorRef = useRef<HTMLParagraphElement>(null);
   const pendingRef = useRef(false);
 
@@ -59,6 +73,7 @@ export function PasswordRecoveryForm({
         typeof pending.email === "string"
       ) {
         setEmail(pending.email);
+        setHasPendingEmail(true);
         if (
           "sentAt" in pending &&
           typeof pending.sentAt === "number" &&
@@ -86,6 +101,9 @@ export function PasswordRecoveryForm({
   useEffect(() => {
     if (error) errorRef.current?.focus();
   }, [error]);
+  useEffect(() => {
+    if (passwordStep || reset) headingRef.current?.focus();
+  }, [passwordStep, reset]);
 
   async function run(action: () => Promise<void>) {
     if (pendingRef.current) return;
@@ -151,6 +169,27 @@ export function PasswordRecoveryForm({
         router.push("/auth/reset-password");
         return;
       }
+      if (codeStep) {
+        const otp = String(fields.get("otp") || "").trim();
+        const result = await authClient.emailOtp.checkVerificationOtp({
+          email: targetEmail,
+          otp,
+          type: "forget-password",
+        });
+        checkError(result);
+        if (result.data?.success !== true)
+          throw new Error(
+            "This code is invalid or expired. Request a new code and try again.",
+          );
+        setVerifiedCode({ email: targetEmail, otp });
+        validation.setValue("otp", "");
+        validation.resetFeedback();
+        return;
+      }
+      if (!verifiedCode || verifiedCode.email !== targetEmail)
+        throw new Error(
+          "Verify your reset code before changing your password.",
+        );
       const password = String(fields.get("password") || "");
       if (password.length < 8 || password.length > 128)
         throw new Error("Use a password between 8 and 128 characters.");
@@ -158,18 +197,25 @@ export function PasswordRecoveryForm({
         throw new Error(
           "Passwords do not match. Enter the same password in both fields.",
         );
-      const otp = String(fields.get("otp") || "").trim();
-      if (!/^\d{6}$/.test(otp))
-        throw new Error("Enter the 6-digit reset code from your email.");
-      checkError(
-        await authClient.emailOtp.resetPassword({
-          email: targetEmail,
-          otp,
-          password,
-        }),
-      );
+      const result = await authClient.emailOtp.resetPassword({
+        email: targetEmail,
+        otp: verifiedCode.otp,
+        password,
+      });
+      if (
+        ["INVALID_OTP", "OTP_EXPIRED", "TOO_MANY_ATTEMPTS"].includes(
+          result.error?.code || "",
+        )
+      ) {
+        setVerifiedCode(null);
+        validation.clearPasswords();
+      }
+      checkError(result);
+      if (result.data?.success !== true)
+        throw new Error("Your password could not be reset. Please try again.");
       form.reset();
       validation.clearPasswords();
+      setVerifiedCode(null);
       try {
         sessionStorage.removeItem(recoveryKey);
       } catch {
@@ -182,7 +228,22 @@ export function PasswordRecoveryForm({
 
   return (
     <>
+      <h2 id="auth-title" ref={headingRef} tabIndex={-1}>
+        {!reset
+          ? "Forgot your password?"
+          : codeStep
+            ? "Check your inbox"
+            : "Set a new password"}
+      </h2>
+      <p className="mt-3.5 mb-6.75 text-[13px] leading-[1.7] text-workspace-muted">
+        {!reset
+          ? "Enter your account email and we’ll send a password reset code."
+          : codeStep
+            ? "Enter the reset code from your email to continue."
+            : "Your code is verified. Choose a new password for your account."}
+      </p>
       <form
+        key={passwordStep ? "password" : "code"}
         method="post"
         noValidate
         onChange={() => setError("")}
@@ -202,39 +263,42 @@ export function PasswordRecoveryForm({
               required
               maxLength={254}
               placeholder="you@example.com"
+              readOnly={passwordStep || (codeStep && hasPendingEmail)}
             />
             <FieldError
               id="recovery-email-error"
               message={validation.message("email")}
             />
           </div>
-          {reset && (
+          {codeStep && (
+            <div className={authFieldClass}>
+              <label htmlFor="reset-otp">Reset code</label>
+              <AuthInput
+                id="reset-otp"
+                name="otp"
+                {...validation.bind("otp", "reset-otp")}
+                variant="otp"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                pattern="[0-9]{6}"
+                minLength={6}
+                maxLength={6}
+                placeholder="000000"
+                required
+                aria-describedby="reset-otp-help reset-otp-error"
+              />
+              <small id="reset-otp-help">
+                If an account exists for this email, a reset code is on its way.
+                Check your spam folder too.
+              </small>
+              <FieldError
+                id="reset-otp-error"
+                message={validation.message("otp")}
+              />
+            </div>
+          )}
+          {passwordStep && (
             <>
-              <div className={authFieldClass}>
-                <label htmlFor="reset-otp">Reset code</label>
-                <AuthInput
-                  id="reset-otp"
-                  name="otp"
-                  {...validation.bind("otp", "reset-otp")}
-                  variant="otp"
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  pattern="[0-9]{6}"
-                  minLength={6}
-                  maxLength={6}
-                  placeholder="000000"
-                  required
-                  aria-describedby="reset-otp-help reset-otp-error"
-                />
-                <small id="reset-otp-help">
-                  If an account exists for this email, a reset code is on its
-                  way. Check your spam folder too.
-                </small>
-                <FieldError
-                  id="reset-otp-error"
-                  message={validation.message("otp")}
-                />
-              </div>
               <div className={authFieldClass}>
                 <label htmlFor="reset-password">New password</label>
                 <div className="relative [&>button]:absolute [&>button]:top-0 [&>button]:right-3.25 [&>button]:h-11.75 [&>button]:cursor-pointer [&>button]:text-[11px] [&>button]:font-semibold [&>button]:text-workspace-accent [&>button]:disabled:cursor-wait [&>button]:disabled:opacity-60">
@@ -308,11 +372,19 @@ export function PasswordRecoveryForm({
         >
           {busy || !ready ? (
             <LoadingIndicator
-              label={reset ? "Resetting password" : "Sending reset code"}
+              label={
+                passwordStep
+                  ? "Resetting password"
+                  : codeStep
+                    ? "Verifying reset code"
+                    : "Sending reset code"
+              }
               compact
             />
-          ) : reset ? (
+          ) : passwordStep ? (
             "Reset password"
+          ) : codeStep ? (
+            "Verify reset code"
           ) : cooldown > 0 ? (
             `Send again in ${cooldown}s`
           ) : (
@@ -320,7 +392,7 @@ export function PasswordRecoveryForm({
           )}
         </button>
       </form>
-      {reset && (
+      {codeStep && (
         <p className="mt-6 text-center text-xs leading-[1.7] text-workspace-muted [&>a]:cursor-pointer [&>a]:font-semibold [&>a]:text-workspace-accent [&>button]:cursor-pointer [&>button]:font-semibold [&>button]:text-workspace-accent [&>button]:disabled:cursor-default [&>button]:disabled:opacity-60">
           No code yet?{" "}
           <button
@@ -346,8 +418,30 @@ export function PasswordRecoveryForm({
       {!reset && (
         <p className="mt-6 text-center text-xs leading-[1.7] text-workspace-muted [&>a]:cursor-pointer [&>a]:font-semibold [&>a]:text-workspace-accent [&>button]:cursor-pointer [&>button]:font-semibold [&>button]:text-workspace-accent [&>button]:disabled:cursor-default [&>button]:disabled:opacity-60">
           Already have a reset code?{" "}
-          <Link href="/auth/reset-password">Reset your password</Link>
+          <Link href="/auth/reset-password">Enter your reset code</Link>
         </p>
+      )}
+      {reset && (
+        <Link
+          href="/auth/forgot-password"
+          className="mx-auto mt-4 block w-fit text-[11px] text-workspace-accent hover:underline"
+        >
+          Use a different email
+        </Link>
+      )}
+      {passwordStep && (
+        <button
+          type="button"
+          disabled={busy}
+          className="mx-auto mt-4 block text-[11px] text-workspace-accent hover:underline disabled:opacity-60"
+          onClick={() => {
+            setVerifiedCode(null);
+            validation.clearPasswords();
+            setError("");
+          }}
+        >
+          Enter a different reset code
+        </button>
       )}
       <Link
         className="mx-auto mt-4.25 block w-fit cursor-pointer text-center text-[11px] text-workspace-accent disabled:cursor-default disabled:opacity-60"

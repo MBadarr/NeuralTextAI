@@ -185,9 +185,9 @@ export function AuthScreen({
           verificationType === "sign-in"
             ? await authClient.signIn.emailOtp({ email: targetEmail, otp })
             : await authClient.emailOtp.verifyEmail({
-                email: targetEmail,
-                otp,
-              });
+              email: targetEmail,
+              otp,
+            });
         checkError(result);
         await openWorkspace();
       } else if (signup) {
@@ -261,7 +261,7 @@ export function AuthScreen({
           <span className="mr-3 grid size-9.75 place-items-center rounded-xl border border-white/20 bg-white/8">
             <Icon name="spark" size={22} />
           </span>
-          neural<span>text</span>
+          Neural<span>TextAI</span>
         </Link>
         <div className="relative my-auto max-w-110 self-center pt-16.25 pb-11.25 [&>h1]:mt-5.25 [&>h1]:text-[clamp(36px,3.5vw,54px)] [&>h1]:font-semibold [&>h1]:leading-[1.14] [&>h1]:tracking-[-2px] [&>p]:mt-5.75 [&>p]:max-w-91.25 [&>p]:text-sm [&>p]:leading-[1.8] [&>p]:text-[#e2d8f7]">
           <span className="block text-[10px] font-bold tracking-[0.16em] text-[#e1d4ff]">
@@ -341,28 +341,24 @@ export function AuthScreen({
                   ? "START SOMETHING GREAT"
                   : "YOUR WORKSPACE AWAITS"}
           </p>
-          <h2 id="auth-title">
-            {view === "forgot-password"
-              ? "Forgot your password?"
-              : view === "reset-password"
-                ? "Set a new password"
-                : verify
+          {!recovery && (
+            <>
+              <h2 id="auth-title">
+                {verify
                   ? "Check your inbox"
                   : signup
                     ? "Make room for your ideas"
                     : "Welcome back"}
-          </h2>
-          <p className="mt-3.5 mb-6.75 text-[13px] leading-[1.7] text-workspace-muted">
-            {view === "forgot-password"
-              ? "Enter your account email and we’ll send a password reset code."
-              : view === "reset-password"
-                ? "Enter your email code and choose a new password for your account."
-                : verify
+              </h2>
+              <p className="mt-3.5 mb-6.75 text-[13px] leading-[1.7] text-workspace-muted">
+                {verify
                   ? "Enter the verification code from your email to continue."
                   : signup
                     ? "Create your NeuralText account and find the insight in every word."
                     : "Sign in to pick up where your curiosity left off."}
-          </p>
+              </p>
+            </>
+          )}
           {!verify && !recovery && (
             <>
               <button

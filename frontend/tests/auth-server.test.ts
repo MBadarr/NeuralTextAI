@@ -47,6 +47,10 @@ describe("Neon server integration", () => {
   it.each([
     ["request-password-reset", { email: "test@example.com" }],
     [
+      "check-verification-otp",
+      { email: "test@example.com", otp: "123456", type: "forget-password" },
+    ],
+    [
       "reset-password",
       {
         email: "test@example.com",

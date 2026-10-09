@@ -25,6 +25,7 @@ const mock = vi.hoisted(() => ({
   getSession: vi.fn(),
   useSession: vi.fn(),
   requestReset: vi.fn(),
+  checkResetCode: vi.fn(),
   resetPassword: vi.fn(),
 }));
 vi.mock("next/navigation", () => ({
@@ -42,6 +43,7 @@ vi.mock("@/lib/auth-client", () => ({
       sendVerificationOtp: mock.sendCode,
       verifyEmail: mock.verify,
       requestPasswordReset: mock.requestReset,
+      checkVerificationOtp: mock.checkResetCode,
       resetPassword: mock.resetPassword,
     },
     getSession: mock.getSession,
@@ -85,9 +87,10 @@ beforeEach(() => {
     mock.verify,
     mock.otpLogin,
     mock.requestReset,
+    mock.checkResetCode,
     mock.resetPassword,
   ])
-    method.mockResolvedValue({ data: {}, error: null });
+    method.mockResolvedValue({ data: { success: true }, error: null });
   mock.getSession.mockResolvedValue({
     data: { user: { id: "alex", emailVerified: true } },
     error: null,
@@ -173,8 +176,9 @@ describe("authentication flows", () => {
     expect(mock.verify).not.toHaveBeenCalled();
   });
 
-  it("checks confirmation immediately and rechecks it when the password changes", () => {
+  it("checks confirmation immediately and rechecks it when the password changes", async () => {
     show("reset-password");
+    await verifyResetCode();
     fireEvent.change(screen.getByLabelText("New password"), {
       target: { value: "new-password" },
     });
@@ -231,13 +235,19 @@ describe("authentication flows", () => {
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
-  function resetFields(confirmation = "new-secure-password") {
+  async function verifyResetCode() {
     fireEvent.change(screen.getByLabelText("Email address"), {
       target: { value: "alex@example.com" },
     });
     fireEvent.change(screen.getByLabelText("Reset code"), {
       target: { value: "123456" },
     });
+    fireEvent.click(screen.getByRole("button", { name: "Verify reset code" }));
+    await screen.findByLabelText("New password");
+  }
+
+  async function resetFields(confirmation = "new-secure-password") {
+    await verifyResetCode();
     fireEvent.change(screen.getByLabelText("New password"), {
       target: { value: "new-secure-password" },
     });
@@ -245,6 +255,108 @@ describe("authentication flows", () => {
       target: { value: confirmation },
     });
   }
+
+  it("hides password fields until Neon verifies the reset code", async () => {
+    show("reset-password");
+    expect(screen.queryByLabelText("New password")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Reset password" })).toBeNull();
+    await verifyResetCode();
+    expect(
+      screen.getByRole("heading", { name: "Set a new password" }),
+    ).toBeTruthy();
+    expect(screen.queryByLabelText("Reset code")).toBeNull();
+    expect(
+      screen.getByLabelText("New password").getAttribute("aria-invalid"),
+    ).toBe("false");
+    expect(mock.resetPassword).not.toHaveBeenCalled();
+    expect(mock.verify).not.toHaveBeenCalled();
+    expect(mock.otpLogin).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { data: null, error: { code: "INVALID_OTP" } },
+    { data: null, error: { code: "OTP_EXPIRED" } },
+    { data: { success: false }, error: null },
+  ])("keeps rejected codes on code entry without exposing passwords: %j", async (result) => {
+    mock.checkResetCode.mockResolvedValue(result);
+    show("reset-password");
+    fireEvent.change(screen.getByLabelText("Email address"), {
+      target: { value: "alex@example.com" },
+    });
+    fireEvent.change(screen.getByLabelText("Reset code"), {
+      target: { value: "123456" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Verify reset code" }));
+    expect((await screen.findByRole("alert")).textContent).toContain(
+      "invalid or expired",
+    );
+    expect(screen.queryByLabelText("New password")).toBeNull();
+    expect(mock.resetPassword).not.toHaveBeenCalled();
+  });
+
+  it("shows verification progress and waits for the provider before advancing", async () => {
+    let resolveCheck: (value: unknown) => void = () => {};
+    mock.checkResetCode.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveCheck = resolve;
+        }),
+    );
+    show("reset-password");
+    fireEvent.change(screen.getByLabelText("Email address"), {
+      target: { value: "alex@example.com" },
+    });
+    fireEvent.change(screen.getByLabelText("Reset code"), {
+      target: { value: "123456" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Verify reset code" }));
+    expect(
+      screen.getByRole("status", { name: "Verifying reset code" }),
+    ).toBeTruthy();
+    expect(screen.queryByLabelText("New password")).toBeNull();
+    expect(
+      (screen.getByLabelText("Reset code") as HTMLInputElement).closest(
+        "fieldset",
+      )?.disabled,
+    ).toBe(true);
+    resolveCheck({ data: { success: true }, error: null });
+    await screen.findByLabelText("New password");
+  });
+
+  it("requires verification again after refresh and stores no reset secrets", async () => {
+    sessionStorage.setItem(
+      "neuraltext-password-recovery",
+      JSON.stringify({ email: "alex@example.com", sentAt: Date.now() }),
+    );
+    const mounted = show("reset-password");
+    await resetFields();
+    expect(
+      sessionStorage.getItem("neuraltext-password-recovery"),
+    ).not.toContain("123456");
+    expect(
+      sessionStorage.getItem("neuraltext-password-recovery"),
+    ).not.toContain("new-secure-password");
+    mounted.unmount();
+    show("reset-password");
+    expect(screen.getByLabelText("Reset code")).toBeTruthy();
+    expect(screen.queryByLabelText("New password")).toBeNull();
+    expect(
+      (screen.getByLabelText("Email address") as HTMLInputElement).value,
+    ).toBe("alex@example.com");
+  });
+
+  it("clears password fields when returning to code entry", async () => {
+    show("reset-password");
+    await resetFields();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Enter a different reset code" }),
+    );
+    expect(screen.queryByLabelText("New password")).toBeNull();
+    await verifyResetCode();
+    expect(
+      (screen.getByLabelText("New password") as HTMLInputElement).value,
+    ).toBe("");
+  });
 
   it("restores email and resend cooldown after refresh and resets the password", async () => {
     sessionStorage.setItem(
@@ -259,7 +371,7 @@ describe("authentication flows", () => {
       (screen.getByRole("button", { name: /Resend in/ }) as HTMLButtonElement)
         .disabled,
     ).toBe(true);
-    resetFields();
+    await resetFields();
     fireEvent.click(screen.getByRole("button", { name: "Reset password" }));
     await waitFor(() =>
       expect(mock.replace).toHaveBeenCalledWith("/auth/sign-in?reset=1"),
@@ -269,13 +381,18 @@ describe("authentication flows", () => {
       otp: "123456",
       password: "new-secure-password",
     });
+    expect(mock.checkResetCode).toHaveBeenCalledWith({
+      email: "alex@example.com",
+      otp: "123456",
+      type: "forget-password",
+    });
     expect(sessionStorage.getItem("neuraltext-password-recovery")).toBeNull();
     expect(mock.login).not.toHaveBeenCalled();
   });
 
   it("rejects mismatched passwords before calling Neon", async () => {
     show("reset-password");
-    resetFields("different-password");
+    await resetFields("different-password");
     fireEvent.click(screen.getByRole("button", { name: "Reset password" }));
     expect((await screen.findByRole("alert")).textContent).toContain(
       "Passwords do not match",
@@ -288,7 +405,7 @@ describe("authentication flows", () => {
       error: { code: "OTP_EXPIRED", message: "Expired" },
     });
     show("reset-password");
-    resetFields();
+    await resetFields();
     fireEvent.click(screen.getByRole("button", { name: "Reset password" }));
     expect((await screen.findByRole("alert")).textContent).toContain(
       "invalid or expired",
