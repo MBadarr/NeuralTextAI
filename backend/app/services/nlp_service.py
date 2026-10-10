@@ -36,7 +36,7 @@ class NLPService:
         with self._lock:
             if self.nlp is not None:
                 return
-            requested = getenv("SPACY_MODEL", "en_core_web_md")
+            requested = getenv("SPACY_MODEL", "en_core_web_sm")
             try:
                 self.nlp = spacy.load(requested, exclude=["senter"])
                 self.model_name = requested
@@ -77,7 +77,11 @@ class NLPService:
         warnings = []
         if self.model_name == "en_blank":
             warnings.append(
-                "Trained spaCy model unavailable. Entity recognition, POS tags and dependency parsing require en_core_web_md."
+                "Trained spaCy model unavailable. Entity recognition, POS tags and dependency parsing require en_core_web_sm or en_core_web_md."
+            )
+        elif not self.nlp.vocab.vectors_length:
+            warnings.append(
+                "Low-memory model active: semantic search uses lexical similarity and intent classification uses speech-act rules."
             )
         if language not in ("en", "und"):
             warnings.append(

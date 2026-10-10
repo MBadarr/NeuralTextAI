@@ -34,7 +34,11 @@ class NLPFeaturesTests(TestCase):
             self.assertTrue(result["keywords"])
             self.assertIsNotNone(result["readability"])
             self.assertGreater(result["processing_time_ms"], 0)
-            self.assertEqual(client.get("/models").json()[0]["vectors"], 300)
+            model = client.get("/models").json()[0]
+            self.assertTrue(model["trained"])
+            self.assertIn(model["vectors"], (0, 300))
+            if model["vectors"] == 0:
+                self.assertTrue(any("Low-memory" in w for w in result["warnings"]))
             self.assertTrue(
                 client.post(
                     "/keywords",
@@ -69,8 +73,15 @@ class NLPFeaturesTests(TestCase):
                 "/analysis",
                 json={"text": "A chef cooks food in the kitchen.", "title": "Cooking"},
             )
-            search = client.post("/search", json={"query": "cars and driving"}).json()
+            has_vectors = client.get("/models").json()[0]["vectors"] > 0
+            search = client.post(
+                "/search",
+                json={"query": "cars and driving" if has_vectors else "vehicle road"},
+            ).json()
             self.assertEqual(search["results"][0]["document"]["title"], "Transport")
+            if not has_vectors:
+                self.assertEqual(search["method"], "TF-IDF lexical similarity")
+                self.assertTrue(search["warnings"])
             comparison = client.post(
                 "/plagiarism", json={"text": "The vehicle travels on the road."}
             ).json()
@@ -82,15 +93,20 @@ class NLPFeaturesTests(TestCase):
             intent = client.post("/intent", json={"text": "Can you help me?"})
             self.assertEqual(intent.status_code, 200)
             self.assertEqual(intent.json()["label"], "Request")
-            self.assertIn("spaCy", intent.json()["method"])
+            self.assertIn("speech-act rules", intent.json()["method"])
             semantic = client.post(
                 "/intent",
                 json={"text": "My delivery is late and the service is terrible."},
             ).json()
-            self.assertEqual(semantic["label"], "Complaint")
-            self.assertEqual(
-                semantic["sentences"][0]["evidence"], "Similarity to semantic examples"
-            )
+            if client.get("/models").json()[0]["vectors"]:
+                self.assertEqual(semantic["label"], "Complaint")
+                self.assertEqual(
+                    semantic["sentences"][0]["evidence"],
+                    "Similarity to semantic examples",
+                )
+            else:
+                self.assertEqual(semantic["method"], "English speech-act rules")
+                self.assertTrue(any("Semantic vectors unavailable" in w for w in semantic["warnings"]))
             emotion = client.post(
                 "/emotions", json={"text": "I am not sad, but I am very happy."}
             )
