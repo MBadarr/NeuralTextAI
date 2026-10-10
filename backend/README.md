@@ -259,3 +259,28 @@ CPU-bound text routes use synchronous FastAPI handlers so work runs in the
 thread pool rather than blocking the async event loop. Recent parses and spelling
 corrections are cached with bounded instance caches. Spelling review caps its
 work and reports limits for long inputs.
+
+## Production memory and OOM restarts
+
+Run one application worker per instance initially: each worker loads a separate
+spaCy model and scientific Python libraries. Measure the cloud instance's peak
+memory under analysis and writing requests, and allocate headroom above it. A
+local Windows measurement with `en_core_web_md` reached approximately 481 MiB
+for a short analysis before API and database overhead; this is not a Linux/cloud
+memory guarantee. A 512 MiB instance can be insufficient. Start with 1 GiB for
+the existing model and verify the cloud memory metrics before increasing load.
+
+NLP and writing endpoints share one processing slot per worker. Overlapping
+requests receive HTTP 503 with `Retry-After: 1` instead of running simultaneous
+inference. Health and document reads remain available. The slot is released
+even when processing fails. The model loads once per service instance, unused
+sentence-recognizer weights are excluded, and `doc_cleaner` removes intermediate
+tensors after parsing. Up to four texts of at most 10,000 characters are cached;
+larger parses are not retained. Semantic vectors, NER, POS, dependencies, and
+lemmatization remain enabled. Autocomplete selects five suggestions without
+sorting and retaining every matching dictionary entry.
+
+FastAPI Cloud's `Degraded (OOM)` status means the process exceeded its memory
+allocation. It can cause `EOF` or 502 responses followed by a return to Ready
+after a restart. Deploy these changes and configure adequate instance memory;
+changing CORS or Neon auth URLs cannot resolve an OOM kill.

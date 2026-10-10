@@ -1,6 +1,7 @@
 import re
 from collections import Counter
 from functools import lru_cache
+from heapq import nsmallest
 
 from spellchecker import SpellChecker
 
@@ -25,7 +26,9 @@ class WritingService:
         )
         return [
             word
-            for word, _ in sorted(completions, key=lambda item: (-item[1], item[0]))[:5]
+            for word, _ in nsmallest(
+                5, completions, key=lambda item: (-item[1], item[0])
+            )
         ]
 
     def feedback(self, text: str):

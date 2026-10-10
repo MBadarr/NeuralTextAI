@@ -2,13 +2,14 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends
 
+from app.core.nlp_capacity import limit_nlp_requests
 from app.dependencies import get_document_service, get_nlp_service
 from app.schemas.analysis import AnalysisRequest, SearchRequest, SummaryRequest
 from app.schemas.document import DocumentResponse
 from app.services.document_service import DocumentService
 from app.services.nlp_service import NLPService
 
-router = APIRouter(tags=["analysis"])
+router = APIRouter(tags=["analysis"], dependencies=[Depends(limit_nlp_requests)])
 NLPDependency = Annotated[NLPService, Depends(get_nlp_service)]
 DocumentDependency = Annotated[DocumentService, Depends(get_document_service)]
 

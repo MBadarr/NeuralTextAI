@@ -30,20 +30,31 @@ class NLPService:
         self._syllables = pyphen.Pyphen(lang="en_US")
         self._stemmer = snowballstemmer.stemmer("english")
         self._classifier = None
-        self.parse = lru_cache(maxsize=16)(self._parse)
+        self._cached_parse = lru_cache(maxsize=4)(self._parse)
 
     def load(self):
         with self._lock:
+            if self.nlp is not None:
+                return
             requested = getenv("SPACY_MODEL", "en_core_web_md")
             try:
-                self.nlp = spacy.load(requested)
+                self.nlp = spacy.load(requested, exclude=["senter"])
                 self.model_name = requested
             except OSError:
                 self.nlp = spacy.blank("en")
                 self.nlp.add_pipe("sentencizer")
                 self.model_name = "en_blank"
+            # Preserve linguistic annotations and static semantic vectors while
+            # dropping intermediate tok2vec tensors from retained documents.
+            self.nlp.add_pipe("doc_cleaner", last=True)
             self._classifier = TextClassifier(self.nlp)
-            self.parse.cache_clear()
+            self._cached_parse.cache_clear()
+
+    def parse(self, text: str):
+        # Large documents may be analyzed, but must not remain in the LRU cache.
+        if len(text) > 10_000:
+            return self._parse(text)
+        return self._cached_parse(text)
 
     def _parse(self, text: str):
         if self.nlp is None:

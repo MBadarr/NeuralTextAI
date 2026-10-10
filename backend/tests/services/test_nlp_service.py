@@ -10,6 +10,21 @@ class NLPServiceTests(TestCase):
         with patch("app.services.nlp_service.spacy.load", side_effect=OSError):
             self.nlp.load()
 
+    def test_large_parses_are_not_retained_and_short_parse_cache_is_bounded(self):
+        for number in range(6):
+            self.nlp.parse(f"Short document number {number}.")
+        self.assertEqual(self.nlp._cached_parse.cache_info().currsize, 4)
+        before = self.nlp._cached_parse.cache_info()
+        self.nlp.parse("large document " * 1000)
+        self.assertEqual(self.nlp._cached_parse.cache_info(), before)
+
+    def test_loaded_model_is_reused(self):
+        loaded = self.nlp.nlp
+        with patch("app.services.nlp_service.spacy.load") as load:
+            self.nlp.load()
+        load.assert_not_called()
+        self.assertIs(self.nlp.nlp, loaded)
+
     def test_fallback_analysis_reports_unavailable_model_without_fake_entities(self):
         result = self.nlp.analyze("Microsoft works in London.")
         self.assertEqual(result["word_count"], 4)
