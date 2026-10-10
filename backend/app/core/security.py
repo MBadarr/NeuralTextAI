@@ -2,6 +2,7 @@
 
 from functools import lru_cache
 from typing import Annotated
+from urllib.parse import urlsplit
 
 import jwt
 from fastapi import Depends, HTTPException
@@ -18,7 +19,36 @@ logger = get_logger(__name__)
 def get_jwks_client() -> jwt.PyJWKClient:
     if not settings.neon_auth_jwks_url or not settings.neon_auth_issuer:
         raise HTTPException(503, "Authentication is not configured")
-    return jwt.PyJWKClient(settings.neon_auth_jwks_url, timeout=10, lifespan=300)
+    jwks_url = settings.neon_auth_jwks_url
+    try:
+        parts = urlsplit(jwks_url)
+        valid = (
+            parts.scheme in {"https", "http"}
+            and bool(parts.hostname)
+            and not (parts.username or parts.password or parts.query or parts.fragment)
+        )
+    except ValueError:
+        valid = False
+    if not valid:
+        logger.error("NEON_AUTH_JWKS_URL must be a plain HTTP(S) signing-key URL")
+        raise HTTPException(
+            503,
+            "Authentication signing-key URL is not configured correctly",
+            headers={"X-Auth-Error": "invalid_jwks_url"},
+        )
+    if settings.neon_auth_base_url and jwks_url.rstrip("/") != (
+        f"{settings.neon_auth_base_url.rstrip('/')}/.well-known/jwks.json"
+    ):
+        logger.error(
+            "Neon configuration mismatch: set NEON_AUTH_JWKS_URL to "
+            "NEON_AUTH_BASE_URL + /.well-known/jwks.json, or remove the override"
+        )
+        raise HTTPException(
+            503,
+            "Authentication signing-key configuration mismatch",
+            headers={"X-Auth-Error": "jwks_configuration_mismatch"},
+        )
+    return jwt.PyJWKClient(jwks_url, timeout=10, lifespan=300)
 
 
 def require_user(
@@ -43,7 +73,39 @@ def require_user(
         )
     except jwt.PyJWKClientConnectionError as error:
         logger.warning("Neon signing keys unavailable (%s)", type(error).__name__)
-        raise HTTPException(503, "Authentication service unavailable") from error
+        raise HTTPException(
+            503,
+            "Authentication service unavailable",
+            headers={"X-Auth-Error": "jwks_unavailable"},
+        ) from error
+    except jwt.PyJWKClientError as error:
+        if str(error).startswith("Unable to find a signing key that matches"):
+            # Do not log PyJWT's raw message: it includes the token's key ID.
+            logger.warning(
+                "Neon signing key not found: compare Vercel and backend "
+                "NEON_AUTH_BASE_URL values and branches; sign in again after key rotation"
+            )
+            raise HTTPException(
+                401,
+                "Session signing key not found",
+                headers={
+                    "WWW-Authenticate": "Bearer",
+                    "X-Auth-Error": "signing_key_not_found",
+                },
+            ) from error
+        logger.error("Neon JWKS endpoint returned no usable signing keys")
+        raise HTTPException(
+            503,
+            "Authentication signing keys unavailable",
+            headers={"X-Auth-Error": "invalid_jwks_response"},
+        ) from error
+    except jwt.PyJWKSetError as error:
+        logger.error("Neon JWKS endpoint returned an invalid signing-key set")
+        raise HTTPException(
+            503,
+            "Authentication signing keys unavailable",
+            headers={"X-Auth-Error": "invalid_jwks_response"},
+        ) from error
     except jwt.PyJWTError as error:
         # Log the failure category, never the token, cookies, or user claims.
         logger.warning("Neon access token rejected (%s)", type(error).__name__)

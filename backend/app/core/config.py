@@ -7,11 +7,8 @@ from dotenv import load_dotenv
 
 load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
-auth_origin = (
-    urlsplit(getenv("NEON_AUTH_BASE_URL", ""))
-    ._replace(path="", query="", fragment="")
-    .geturl()
-)
+auth_base_url = getenv("NEON_AUTH_BASE_URL", "").strip().rstrip("/")
+auth_origin = urlsplit(auth_base_url)._replace(path="", query="", fragment="").geturl()
 
 
 @dataclass(frozen=True)
@@ -19,8 +16,10 @@ class Settings:
     app_name: str = "NeuralText AI"
     version: str = "0.1.0"
     frontend_url: str = getenv("FRONTEND_URL", "http://localhost:3000")
-    neon_auth_base_url: str = getenv("NEON_AUTH_BASE_URL", "").rstrip("/")
-    neon_auth_jwks_url: str = getenv("NEON_AUTH_JWKS_URL", "")
+    neon_auth_base_url: str = auth_base_url
+    neon_auth_jwks_url: str = getenv("NEON_AUTH_JWKS_URL", "").strip() or (
+        f"{auth_base_url}/.well-known/jwks.json" if auth_base_url else ""
+    )
     neon_auth_issuer: str = getenv("NEON_AUTH_ISSUER", auth_origin)
     neon_auth_audience: str = getenv("NEON_AUTH_AUDIENCE", auth_origin)
     database_url: str = getenv("DATABASE_URL", "")

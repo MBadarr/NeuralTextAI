@@ -30,6 +30,8 @@ const session = {
 };
 
 beforeEach(() => {
+  vi.resetModules();
+  vi.stubEnv("API_URL", "https://backend.example");
   vi.stubEnv("NEON_AUTH_BASE_URL", "https://auth.example/neondb/auth");
   vi.stubEnv(
     "NEON_AUTH_COOKIE_SECRET",
@@ -203,6 +205,34 @@ describe("Neon server integration", () => {
 });
 
 describe("authenticated backend proxy", () => {
+  it("preserves signing-key configuration failures as 503 with a diagnostic code", async () => {
+    context.cookie = "__Secure-neon-auth.session_token=fixture-token";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>(async (input) => {
+        const url = String(input);
+        if (url.includes("/get-session")) return Response.json(session);
+        if (url.includes("/token"))
+          return Response.json({ token: "fixture-jwt" });
+        return Response.json(
+          { detail: "Configuration mismatch" },
+          {
+            status: 503,
+            headers: { "X-Auth-Error": "jwks_configuration_mismatch" },
+          },
+        );
+      }),
+    );
+    const { GET } = await import("@/app/api/backend/[...path]/route");
+    const response = await GET(
+      new NextRequest("https://app.example/api/backend/documents"),
+      {
+        params: Promise.resolve({ path: ["documents"] }),
+      },
+    );
+    expect(response.status).toBe(503);
+    expect((await response.json()).code).toBe("jwks_configuration_mismatch");
+  });
   it("obtains the JWT on the server and forwards it without exposing it to the browser", async () => {
     vi.stubEnv("API_URL", "https://backend.example");
     context.cookie = "__Secure-neon-auth.session_token=fixture-token";

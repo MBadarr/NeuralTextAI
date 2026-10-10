@@ -61,6 +61,21 @@ async function forward(
         signal: AbortSignal.timeout(120000),
       },
     );
+    const authError = response.headers.get("X-Auth-Error");
+    if (response.status === 503 && authError) {
+      console.error("Backend signing-key service unavailable", {
+        path,
+        code: authError,
+      });
+      return Response.json(
+        {
+          detail:
+            "Authentication service temporarily unavailable. Please retry.",
+          code: authError,
+        },
+        { status: 503 },
+      );
+    }
     if (response.status === 401 || response.status === 403) {
       console.error("Backend rejected the Neon access token", {
         path,

@@ -12,7 +12,7 @@ from fastapi.security import HTTPAuthorizationCredentials
 from fastapi.testclient import TestClient
 
 from app.core.config import settings
-from app.core.security import require_user
+from app.core.security import get_jwks_client, require_user
 from app.dependencies import get_document_repository
 from app.main import app
 from app.repositories.document_repository import DocumentRepository
@@ -33,6 +33,58 @@ class AuthenticationTests(TestCase):
             )["settings"]
         self.assertEqual(configured.neon_auth_issuer, "https://auth.example")
         self.assertEqual(configured.neon_auth_audience, "https://auth.example")
+        self.assertEqual(
+            configured.neon_auth_jwks_url,
+            "https://auth.example/neondb/auth/.well-known/jwks.json",
+        )
+
+    def test_wrong_branch_jwks_is_rejected_without_fetching(self):
+        get_jwks_client.cache_clear()
+        self.addCleanup(get_jwks_client.cache_clear)
+        config = SimpleNamespace(
+            neon_auth_base_url="https://auth.example/neondb/auth",
+            neon_auth_jwks_url="https://wrong.example/neondb/auth/.well-known/jwks.json",
+            neon_auth_issuer="https://auth.example",
+        )
+        with (
+            patch("app.core.security.settings", config),
+            self.assertRaises(HTTPException) as caught,
+        ):
+            get_jwks_client()
+        self.assertEqual(caught.exception.status_code, 503)
+        self.assertEqual(
+            caught.exception.headers["X-Auth-Error"], "jwks_configuration_mismatch"
+        )
+
+    def test_jwks_errors_report_categories_without_logging_tokens_or_key_ids(self):
+        for error, status, code in [
+            (
+                jwt.PyJWKClientError(
+                    'Unable to find a signing key that matches: "private-key-id"'
+                ),
+                401,
+                "signing_key_not_found",
+            ),
+            (jwt.PyJWKClientError("No signing keys"), 503, "invalid_jwks_response"),
+            (jwt.PyJWKSetError("No keys"), 503, "invalid_jwks_response"),
+            (jwt.PyJWKClientConnectionError("Unavailable"), 503, "jwks_unavailable"),
+        ]:
+            with (
+                self.subTest(code=code),
+                patch("app.core.security.get_jwks_client") as client,
+                self.assertLogs("app.core.security", level="WARNING") as logs,
+                self.assertRaises(HTTPException) as caught,
+            ):
+                client.return_value.get_signing_key_from_jwt.side_effect = error
+                require_user(
+                    HTTPAuthorizationCredentials(
+                        scheme="Bearer", credentials="private-token"
+                    )
+                )
+            self.assertEqual(caught.exception.status_code, status)
+            self.assertEqual(caught.exception.headers["X-Auth-Error"], code)
+            self.assertNotIn("private-token", " ".join(logs.output))
+            self.assertNotIn("private-key-id", " ".join(logs.output))
 
     def setUp(self):
         self.key = ed25519.Ed25519PrivateKey.generate()

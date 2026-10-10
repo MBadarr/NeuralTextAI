@@ -19,6 +19,16 @@ during startup, configures CORS for the frontend, and preserves `/docs`,
 
 ## API endpoints
 
+For deployment, use exactly the same `NEON_AUTH_BASE_URL` as the Vercel
+frontend. `NEON_AUTH_JWKS_URL` is optional and derives from that base URL plus
+`/.well-known/jwks.json`; an explicit override must match. Deploy backend
+changes separately from Vercel frontend changes and check Vercel's `API_URL`
+points to that backend. Signing-key failures expose safe codes:
+`signing_key_not_found` (401), `jwks_configuration_mismatch`,
+`invalid_jwks_url`, `invalid_jwks_response`, and `jwks_unavailable` (503).
+If the response still reports generic `PyJWKClientError`, the updated backend
+code is not serving the request.
+
 Workspace endpoints require `Authorization: Bearer <Neon JWT>`. The Next.js
 server proxy supplies this after checking the live session and verified email.
 Direct API calls must also supply a valid signed token. `core/security.py`
