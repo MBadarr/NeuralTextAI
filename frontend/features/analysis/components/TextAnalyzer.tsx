@@ -16,9 +16,61 @@ import { Button } from "@/ui/Button";
 import { Input } from "@/ui/Input";
 import { Textarea } from "@/ui/Textarea";
 
-export function TextAnalyzer() {
+const textPlaceholders: Record<string, string> = {
+  "Text analyzer":
+    "Paste text to analyze language, entities, sentiment, keywords, and readability…",
+  "Named entity recognition":
+    "Paste text to identify people, organizations, places, dates, and other entities…",
+  "Writing assistant":
+    "Paste your draft to check spelling, grammar, and writing style…",
+  "Predictive text":
+    "Start typing to see word and phrase suggestions as you write…",
+  "Keyword extraction":
+    "Paste text to extract keywords and frequently used terms…",
+  Readability:
+    "Paste your draft to assess reading difficulty and sentence length…",
+};
+
+const featureActions: Record<string, string> = {
+  "Writing assistant": "Save draft and analysis",
+  "Predictive text": "Save draft and analysis",
+  "Named entity recognition": "Find entities and save",
+  "Keyword extraction": "Extract keywords and save",
+  Readability: "Assess readability and save",
+};
+const featureMessages: Record<string, string> = {
+  "Writing assistant":
+    "Start writing to receive spelling and style feedback. Save your draft to keep its analysis.",
+  "Predictive text":
+    "Start typing to receive completion suggestions. Select a suggestion to insert it into your text.",
+  "Keyword extraction":
+    "Extract keywords to view key terms, noun phrases, and word frequencies.",
+  Readability:
+    "Assess your text to view reading difficulty and sentence statistics.",
+  "Named entity recognition":
+    "Find entities to highlight people, organizations, places, and dates.",
+  "Text analyzer":
+    "Analyze text to view entities, tokens, keywords, readability, sentiment, and a summary.",
+};
+
+export function TextAnalyzer({
+  feature = "Text analyzer",
+}: {
+  feature?: string;
+}) {
+  const checksWriting =
+    feature === "Text analyzer" || feature === "Writing assistant";
+  const completesText =
+    feature === "Text analyzer" || feature === "Predictive text";
+  const resultTab =
+    feature === "Keyword extraction"
+      ? "Keywords"
+      : feature === "Readability"
+        ? "Readability"
+        : "Entities";
   const [title, setTitle] = useState("");
   const [text, setText] = useState("");
+  const [cursor, setCursor] = useState(0);
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -51,15 +103,19 @@ export function TextAnalyzer() {
     setFeedback([]);
     setSuggestions([]);
     setWarnings([]);
-    if (!text.trim()) {
+    if (!text.trim() || loading || (!checksWriting && !completesText)) {
       setFeedbackStatus("idle");
       return () => controller.abort();
     }
     setFeedbackStatus("checking");
     const timer = window.setTimeout(() => {
       Promise.all([
-        getWritingFeedback(text, controller.signal),
-        getAutocomplete(text, controller.signal),
+        checksWriting
+          ? getWritingFeedback(text, controller.signal)
+          : Promise.resolve({ issues: [], warnings: [] }),
+        completesText
+          ? getAutocomplete(text.slice(0, cursor), controller.signal)
+          : Promise.resolve({ suggestions: [], source: "" }),
       ])
         .then(([writing, completion]) => {
           if (controller.signal.aborted) return;
@@ -80,10 +136,11 @@ export function TextAnalyzer() {
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [text]);
+  }, [text, cursor, loading, checksWriting, completesText]);
 
-  function changeText(value: string) {
+  function changeText(value: string, position = value.length) {
     setText(value);
+    setCursor(position);
     setResult(null);
     setError("");
   }
@@ -105,8 +162,20 @@ export function TextAnalyzer() {
       before && !/\s$/.test(before) && source !== "dictionary prefix"
         ? " "
         : "";
-    changeText(`${before}${separator}${suggestion} ${text.slice(cursor)}`);
-    window.requestAnimationFrame(() => textRef.current?.focus());
+    const after =
+      source === "dictionary prefix"
+        ? text.slice(cursor).replace(/^[\w']+/, "")
+        : text.slice(cursor);
+    const insertion = `${before}${separator}${suggestion}${/^\s/.test(after) ? "" : " "}`;
+    if (insertion.length + after.length > 100000) {
+      setError("This suggestion would exceed the 100,000-character limit.");
+      return;
+    }
+    changeText(`${insertion}${after}`, insertion.length);
+    window.requestAnimationFrame(() => {
+      textRef.current?.focus();
+      textRef.current?.setSelectionRange(insertion.length, insertion.length);
+    });
   }
   async function submit() {
     if (!text.trim()) {
@@ -137,7 +206,7 @@ export function TextAnalyzer() {
     <div className="grid items-start gap-4 xl:grid-cols-2">
       <section className="rounded-xl border border-workspace-border bg-workspace-surface p-5 shadow-sm">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="text-sm font-bold">Analyze and improve text</h2>
+          <h2 className="text-sm font-bold">{feature}</h2>
           <span className="rounded-full bg-workspace-accent-soft px-2 py-1 text-xs text-workspace-accent">
             {apiStatus}
           </span>
@@ -155,7 +224,7 @@ export function TextAnalyzer() {
           value={title}
           onChange={(event) => setTitle(event.target.value)}
           className="mt-2 w-full rounded-lg border border-workspace-border p-3 text-sm"
-          placeholder="Product feedback"
+          placeholder="Add an optional document title…"
         />
         <label htmlFor="analysis-text" className="mt-5 block text-xs font-bold">
           Text
@@ -166,9 +235,14 @@ export function TextAnalyzer() {
           maxLength={100000}
           disabled={loading}
           value={text}
-          onChange={(event) => changeText(event.target.value)}
+          onChange={(event) =>
+            changeText(event.target.value, event.target.selectionStart)
+          }
+          onSelect={(event) => setCursor(event.currentTarget.selectionStart)}
           className="mt-2 min-h-72 w-full rounded-lg border border-workspace-border p-3 text-sm leading-6"
-          placeholder="Paste text to explore entities, grammar, sentiment, keywords and more…"
+          placeholder={
+            textPlaceholders[feature] ?? textPlaceholders["Text analyzer"]
+          }
         />
         <div className="mt-2 flex justify-between text-xs text-workspace-muted">
           <span>{text.length.toLocaleString()} / 100,000 characters</span>
@@ -185,18 +259,22 @@ export function TextAnalyzer() {
             Try example
           </Button>
         </div>
-        {text.trim() && (
+        {text.trim() && (checksWriting || completesText) && (
           <div className="mt-4 space-y-3 rounded-lg bg-workspace-subtle p-3">
             <div className="flex justify-between text-xs">
-              <strong>Writing feedback</strong>
+              <strong>
+                {checksWriting ? "Writing feedback" : "Completion suggestions"}
+              </strong>
               <span>
                 {feedbackStatus === "checking"
                   ? "Checking…"
                   : feedbackStatus === "unavailable"
                     ? "Unavailable"
-                    : feedback.length
-                      ? `${feedback.length} suggestions`
-                      : "No issues detected"}
+                    : !checksWriting
+                      ? `${suggestions.length} suggestions`
+                      : feedback.length
+                        ? `${feedback.length} suggestions`
+                        : "No issues detected"}
               </span>
             </div>
             {feedback.map((issue) => (
@@ -240,12 +318,14 @@ export function TextAnalyzer() {
                 </Button>
               ))}
             </div>
-            {!suggestions.length && feedbackStatus === "ready" && (
-              <p className="text-xs text-workspace-muted">
-                Analyze documents to build a workspace vocabulary for completion
-                suggestions.
-              </p>
-            )}
+            {completesText &&
+              !suggestions.length &&
+              feedbackStatus === "ready" && (
+                <p className="text-xs text-workspace-muted">
+                  Analyze documents to build a workspace vocabulary for
+                  completion suggestions.
+                </p>
+              )}
           </div>
         )}
         {error && (
@@ -259,16 +339,21 @@ export function TextAnalyzer() {
           onClick={submit}
           className="mt-5 rounded-lg bg-workspace-primary px-4 py-3 text-sm font-bold text-workspace-on-primary disabled:opacity-50"
         >
-          {loading ? "Analyzing…" : "Analyze and save"}
+          {loading
+            ? "Analyzing…"
+            : (featureActions[feature] ?? "Analyze and save")}
         </Button>
       </section>
       <section className="rounded-xl border border-workspace-border bg-workspace-surface p-5 shadow-sm">
         {result ? (
-          <AnalysisResults key={result.id} result={result} />
+          <AnalysisResults
+            key={result.id}
+            result={result}
+            initialTab={resultTab}
+          />
         ) : (
           <p className="py-16 text-center text-sm text-workspace-muted">
-            Analyze text to view entities, tokens, keywords, readability,
-            sentiment and a summary.
+            {featureMessages[feature] ?? featureMessages["Text analyzer"]}
           </p>
         )}
       </section>

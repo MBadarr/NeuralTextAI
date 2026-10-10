@@ -198,7 +198,7 @@ are disabled for compatibility with Neon's pooled connection endpoint.
 
 Backend `.env` settings include `DATABASE_URL` (required PostgreSQL connection
 string), `FRONTEND_URL` (default `http://localhost:3000`), and `SPACY_MODEL`
-(default `en_core_web_md`). Production has no local storage fallback. Preserve
+(default `en_core_web_sm`). Production has no local storage fallback. Preserve
 Neon's TLS settings in the connection string; TLS is required by default.
 Copy `.env.example` to `.env` to customize settings. The trained English model is
 installed by `uv sync` using the official spaCy release wheel. If the selected
@@ -224,8 +224,9 @@ them and they are not application source.
 
 ## NLP implementation
 
-- spaCy `en_core_web_md`: tokenization, sentence segmentation, lemmas, POS,
-  dependencies, noun phrases, named entities, and semantic word vectors.
+- spaCy `en_core_web_sm`: tokenization, sentence segmentation, lemmas, POS,
+  dependencies, noun phrases, and named entities. The optional `en_core_web_md`
+  model also supplies static semantic word vectors.
 - VADER: English sentiment with negation, emphasis, and punctuation handling.
   The compound score is intensity, not a calibrated prediction probability.
   The legacy `confidence` field remains for compatibility and equals absolute
@@ -267,17 +268,40 @@ spaCy model and scientific Python libraries. Measure the cloud instance's peak
 memory under analysis and writing requests, and allocate headroom above it. A
 local Windows measurement with `en_core_web_md` reached approximately 481 MiB
 for a short analysis before API and database overhead; this is not a Linux/cloud
-memory guarantee. A 512 MiB instance can be insufficient. Start with 1 GiB for
-the existing model and verify the cloud memory metrics before increasing load.
+memory guarantee. A 500 MiB instance can be insufficient for that model.
+With the small model, the same short input returned HTTP 200 and the API,
+analysis, writing-feedback, and autocomplete checks peaked at approximately
+318 MiB locally using isolated in-memory test storage. Production PostgreSQL,
+Linux runtime differences, long texts, and larger workspaces still require
+verification against cloud metrics.
+
+The default installation now includes `en_core_web_sm` for low-memory hosting.
+In FastAPI Cloud, set `SPACY_MODEL=en_core_web_sm` and redeploy the updated code
+and lockfile. An existing `SPACY_MODEL=en_core_web_md` environment variable
+overrides the new default and must be changed. Confirm `/health` reports
+`model: en_core_web_sm` and `trained: true`, then watch cloud memory metrics
+while running analysis and writing requests. No model is downloaded at runtime.
+
+The small model retains trained entities, POS, dependencies, lemmatization,
+sentiment, emotions, stemming, summaries, and writing tools. It has no static
+word vectors: search uses TF-IDF lexical matching, and intent classification
+uses speech-act rules. API warnings and `/models` report these limitations.
+For vector-based semantics on a sufficiently large instance, install the
+optional model with `uv sync --extra semantic` and select
+`SPACY_MODEL=en_core_web_md`. Smaller models have different prediction accuracy;
+the low-memory profile does not promise identical results or a fixed memory cap.
 
 NLP and writing endpoints share one processing slot per worker. Overlapping
 requests receive HTTP 503 with `Retry-After: 1` instead of running simultaneous
-inference. Health and document reads remain available. The slot is released
+inference, plus `X-Service-Error: nlp_busy` so clients can distinguish a safe
+capacity retry from a database or authentication failure. Health, model metadata,
+and document reads remain available. The slot is released
 even when processing fails. The model loads once per service instance, unused
 sentence-recognizer weights are excluded, and `doc_cleaner` removes intermediate
 tensors after parsing. Up to four texts of at most 10,000 characters are cached;
-larger parses are not retained. Semantic vectors, NER, POS, dependencies, and
-lemmatization remain enabled. Autocomplete selects five suggestions without
+larger parses are not retained. NER, POS, dependencies, and lemmatization remain
+enabled; static semantic vectors are available with the optional medium model.
+Autocomplete selects five suggestions without
 sorting and retaining every matching dictionary entry.
 
 FastAPI Cloud's `Degraded (OOM)` status means the process exceeded its memory

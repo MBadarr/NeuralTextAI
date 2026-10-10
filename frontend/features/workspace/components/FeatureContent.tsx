@@ -159,7 +159,7 @@ export function FeatureContent({ active }: { active: string }) {
     }
   }
 
-  if (analyzerPages.includes(active)) return <TextAnalyzer />;
+  if (analyzerPages.includes(active)) return <TextAnalyzer feature={active} />;
   if (toolPages.includes(active))
     return <TextTool key={active} name={active as ToolName} />;
   const terms = query.toLowerCase().trim().split(/\s+/).filter(Boolean);
@@ -237,7 +237,7 @@ export function FeatureContent({ active }: { active: string }) {
             className="w-full rounded-lg border border-workspace-border p-3 text-sm"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="e.g. cars and transportation"
+            placeholder="Enter a topic or keywords, e.g. language research…"
           />
           {searching && <p className="text-xs">Searching…</p>}
           {search && (

@@ -408,7 +408,7 @@ export function AuthScreen({
                         name="name"
                         {...validation.bind("name")}
                         autoComplete="name"
-                        placeholder="Alex Morgan"
+                        placeholder="Enter your full name"
                         required
                         minLength={2}
                         maxLength={100}
@@ -481,7 +481,7 @@ export function AuthScreen({
                           required
                           placeholder={
                             signup
-                              ? "Create a strong password"
+                              ? "Create a password (8+ characters)"
                               : "Enter your password"
                           }
                           aria-describedby={

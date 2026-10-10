@@ -205,6 +205,35 @@ describe("Neon server integration", () => {
 });
 
 describe("authenticated backend proxy", () => {
+  it("preserves capacity diagnostics so the client can safely retry busy requests", async () => {
+    context.cookie = "__Secure-neon-auth.session_token=fixture-token";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>(async (input) => {
+        const url = String(input);
+        if (url.includes("/get-session")) return Response.json(session);
+        if (url.includes("/token"))
+          return Response.json({ token: "fixture-jwt" });
+        return Response.json(
+          { detail: "Busy" },
+          {
+            status: 503,
+            headers: { "Retry-After": "1", "X-Service-Error": "nlp_busy" },
+          },
+        );
+      }),
+    );
+    const { GET } = await import("@/app/api/backend/[...path]/route");
+    const response = await GET(
+      new NextRequest("https://app.example/api/backend/insights"),
+      {
+        params: Promise.resolve({ path: ["insights"] }),
+      },
+    );
+    expect(response.status).toBe(503);
+    expect(response.headers.get("Retry-After")).toBe("1");
+    expect(response.headers.get("X-Service-Error")).toBe("nlp_busy");
+  });
   it("preserves signing-key configuration failures as 503 with a diagnostic code", async () => {
     context.cookie = "__Secure-neon-auth.session_token=fixture-token";
     vi.stubGlobal(

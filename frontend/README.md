@@ -161,6 +161,15 @@ feature views.
 - Analytics shows real processing times, entity types, languages, and sentiment.
 - Model status lists actual pipeline capabilities and vector availability.
 
+Feature editors run their own background tools: Writing Assistant checks writing,
+Predictive Text requests cursor-context completions, and entity, keyword, and
+readability pages open the matching result tab. NLP POST requests are serialized
+per browser page to respect the low-memory backend's processing slot. Canceled
+queued requests are skipped. Only explicit `X-Service-Error: nlp_busy` responses
+are retried (at most twice); connection, authentication, and database failures
+are surfaced without repeating a potentially completed save. Deploy frontend
+and backend together so the proxy can forward the capacity diagnostics.
+
 `features/analysis/components/AnalysisResults.tsx` is the shared result view used by the analyzer
 and saved documents. Browser JSON export works locally without uploading text.
 

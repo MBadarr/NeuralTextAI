@@ -5,8 +5,14 @@ import { ClassificationResults } from "@/features/analysis/components/Classifica
 import type { AnalysisResult } from "@/features/analysis/types/analysis";
 import { Button } from "@/ui/Button";
 
-export function AnalysisResults({ result }: { result: AnalysisResult }) {
-  const [tab, setTab] = useState("Entities");
+export function AnalysisResults({
+  result,
+  initialTab = "Entities",
+}: {
+  result: AnalysisResult;
+  initialTab?: "Entities" | "Tokens" | "Keywords" | "Readability";
+}) {
+  const [tab, setTab] = useState<string>(initialTab);
   const characters = Array.from(result.text);
   function exportResult() {
     const url = URL.createObjectURL(

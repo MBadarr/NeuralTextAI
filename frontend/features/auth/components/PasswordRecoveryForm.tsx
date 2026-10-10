@@ -315,7 +315,7 @@ export function PasswordRecoveryForm({
                     minLength={8}
                     maxLength={128}
                     required
-                    placeholder="Create a strong password"
+                    placeholder="Create a new password (8+ characters)"
                     aria-describedby="reset-password-help reset-password-error"
                   />
                   <Button

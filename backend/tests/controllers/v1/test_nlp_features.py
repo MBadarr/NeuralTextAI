@@ -106,7 +106,12 @@ class NLPFeaturesTests(TestCase):
                 )
             else:
                 self.assertEqual(semantic["method"], "English speech-act rules")
-                self.assertTrue(any("Semantic vectors unavailable" in w for w in semantic["warnings"]))
+                self.assertTrue(
+                    any(
+                        "Semantic vectors unavailable" in w
+                        for w in semantic["warnings"]
+                    )
+                )
             emotion = client.post(
                 "/emotions", json={"text": "I am not sad, but I am very happy."}
             )

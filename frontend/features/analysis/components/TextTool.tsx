@@ -17,22 +17,27 @@ const tools = {
   "Intent analysis": [
     "intent",
     "Identify sentence-level questions, requests, complaints, appreciation, and statements.",
+    "Paste a message to identify questions, requests, complaints, or appreciation…",
   ],
   "Emotion analysis": [
     "emotions",
     "Find English emotion evidence for joy, anger, sadness, fear, surprise, and disgust.",
+    "Paste text to look for joy, anger, sadness, fear, surprise, or disgust…",
   ],
   "Sentiment analysis": [
     "sentiment",
     "Analyze English sentiment, including negation and emphasis.",
+    "Paste a review, comment, or message to analyze its positive, negative, or neutral tone…",
   ],
   "Text summary": [
     "summary",
     "Rank sentences by relevance and preserve their original order.",
+    "Paste an article or longer passage to create a shorter summary…",
   ],
   "Plagiarism check": [
     "plagiarism",
     "Compare wording with saved workspace documents. Similarity alone does not prove plagiarism.",
+    "Paste text to compare its wording with your saved workspace documents…",
   ],
 } as const;
 export type ToolName = keyof typeof tools;
@@ -50,7 +55,7 @@ export function TextTool({ name }: { name: ToolName }) {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const controllerRef = useRef<AbortController | null>(null);
-  const [path, description] = tools[name];
+  const [path, description, placeholder] = tools[name];
   useEffect(() => () => controllerRef.current?.abort(), []);
   async function submit() {
     if (!text.trim()) {
@@ -98,7 +103,7 @@ export function TextTool({ name }: { name: ToolName }) {
             setError("");
           }}
           className="mt-2 min-h-64 w-full rounded-lg border border-workspace-border p-3 text-sm"
-          placeholder="Paste text here..."
+          placeholder={placeholder}
         />
         {path === "summary" && (
           <label

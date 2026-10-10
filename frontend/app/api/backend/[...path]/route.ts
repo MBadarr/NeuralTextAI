@@ -92,13 +92,18 @@ async function forward(
         { status: 502 },
       );
     }
+    const responseHeaders = new Headers({
+      "Content-Type":
+        response.headers.get("Content-Type") || "application/json",
+      "Cache-Control": "no-store",
+    });
+    for (const name of ["Retry-After", "X-Service-Error"]) {
+      const value = response.headers.get(name);
+      if (value) responseHeaders.set(name, value);
+    }
     return new Response(response.body, {
       status: response.status,
-      headers: {
-        "Content-Type":
-          response.headers.get("Content-Type") || "application/json",
-        "Cache-Control": "no-store",
-      },
+      headers: responseHeaders,
     });
   } catch (error) {
     // Keep diagnostics useful without logging credentials or provider responses.

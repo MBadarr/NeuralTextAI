@@ -109,7 +109,11 @@ export function Topbar() {
             className="w-full bg-transparent text-[11px] outline-none"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search documents..."
+            placeholder={
+              active === "Semantic search"
+                ? "Search by topic or keywords…"
+                : "Filter saved documents…"
+            }
           />
           <kbd className="whitespace-nowrap rounded border border-workspace-border bg-workspace-surface px-1.5 py-0.5 text-[9px]">
             Ctrl K

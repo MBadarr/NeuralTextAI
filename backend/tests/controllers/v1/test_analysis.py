@@ -51,7 +51,9 @@ class AnalysisRoutesTests(TestCase):
                 busy = client.post("/sentiment", json={"text": "Excellent work."})
                 self.assertEqual(busy.status_code, 503)
                 self.assertEqual(busy.headers["Retry-After"], "1")
+                self.assertEqual(busy.headers["X-Service-Error"], "nlp_busy")
                 self.assertEqual(client.get("/health").status_code, 200)
+                self.assertEqual(client.get("/models").status_code, 200)
             finally:
                 release.set()
             self.assertEqual(pending.result(timeout=5).status_code, 500)
