@@ -4,6 +4,14 @@ The frontend is a responsive Next.js dashboard for the NeuralText AI API. It
 uses Tailwind utility classes in components and Zustand for shared workspace
 state.
 
+The text analyzer saves a complete analysis and opens token/POS/dependency results.
+Named entity recognition calls `/entities` without saving, with highlighted mentions,
+entity type filters, counts, and character spans. Writing assistance displays live
+correction cards with Apply actions. Predictive text displays live word/phrase
+completions and inserts them at the cursor while preserving surrounding text.
+The latter two tools do not create analysis records. Each tool includes a relevant
+example and cancels pending requests when navigating away.
+
 ## Run locally
 
 From the `frontend/` directory:

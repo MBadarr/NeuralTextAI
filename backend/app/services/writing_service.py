@@ -121,6 +121,55 @@ class WritingService:
                         sentence.end_char,
                     )
                     break
+            # Dependency subjects avoid treating nearby pronouns as subjects.
+            for subject in sentence:
+                if subject.dep_ not in ("nsubj", "nsubjpass"):
+                    continue
+                if any(child.dep_ == "conj" for child in subject.children):
+                    continue
+                pronoun = subject.lower_
+                if pronoun not in ("i", "you", "he", "she", "it", "we", "they"):
+                    continue
+                verb = subject.head
+                finite = next(
+                    (
+                        child
+                        for child in verb.children
+                        if child.dep_ in ("aux", "auxpass")
+                        and "Fin" in child.morph.get("VerbForm")
+                    ),
+                    verb,
+                )
+                if "Fin" not in finite.morph.get("VerbForm"):
+                    continue
+                singular = pronoun in ("he", "she", "it")
+                corrections = {
+                    "am": "is" if singular else "are",
+                    "is": "am" if pronoun == "i" else "are",
+                    "are": "am" if pronoun == "i" else "is",
+                    "has": "have",
+                    "have": "has",
+                    "does": "do",
+                    "do": "does",
+                }
+                wrong = (
+                    finite.lower_ in ("am", "are", "have", "do")
+                    if singular
+                    else finite.lower_ in ("am", "is", "has", "does")
+                )
+                if pronoun == "i":
+                    wrong = finite.lower_ in ("is", "are", "has", "does")
+                if wrong:
+                    replacement = corrections[finite.lower_]
+                    if finite.text[0].isupper():
+                        replacement = replacement.capitalize()
+                    add(
+                        "grammar",
+                        "Match the verb to its pronoun subject.",
+                        finite.idx,
+                        finite.idx + len(finite.text),
+                        replacement,
+                    )
         if text.rstrip() and text.rstrip()[-1] not in ".!?":
             end = len(text.rstrip())
             add("structure", "Add punctuation at the end of the text.", end, end, ".")
@@ -132,28 +181,47 @@ class WritingService:
             if len(tokens) > 500 or len(candidates) > 30
             else []
         )
+        if not doc.has_annotation("DEP"):
+            warnings.append(
+                "A trained English model is required for grammar and passive-voice checks."
+            )
         return {"issues": issues[:50], "issue_count": len(issues), "warnings": warnings}
 
     def autocomplete(self, text: str, documents: list[dict] | None = None):
-        context = re.findall(r"[\w']+", text.lower())
+        context = re.findall(r"[\w']+", re.split(r"[.!?;\n]", text.lower())[-1])
         if not context:
             return {"suggestions": [], "source": "workspace n-grams"}
         phrases = Counter()
+        prefixes = Counter()
+        partial = bool(text and not text[-1].isspace())
         for content in [text] + [item["text"] for item in documents or []]:
-            words = re.findall(r"[\w']+", content.lower())
-            for size in (2, 1):
-                if len(context) < size:
-                    continue
-                for i in range(size, len(words)):
-                    if words[i - size : i] == context[-size:]:
-                        phrase = " ".join(words[i : i + 3])
-                        if phrase:
-                            phrases[phrase] += size
+            for sentence in re.split(r"[.!?;\n]", content.lower()):
+                words = re.findall(r"[\w']+", sentence)
+                for size in (2, 1):
+                    if len(context) < size:
+                        continue
+                    for i in range(size, len(words)):
+                        if words[i - size : i] == context[-size:]:
+                            phrase = " ".join(words[i : i + 3])
+                            if phrase:
+                                phrases[phrase] += size
+                if partial:
+                    for i, word in enumerate(words):
+                        if word != context[-1] and word.startswith(context[-1]):
+                            previous = context[:-1][-2:]
+                            matched = (
+                                bool(previous)
+                                and words[max(0, i - len(previous)) : i] == previous
+                            )
+                            prefixes[word] += 3 if matched else 1
         suggestions = [phrase for phrase, _ in phrases.most_common(5)]
         source = "workspace n-grams"
-        if not suggestions and not text.endswith((" ", "\n")):
+        if partial and prefixes:
+            suggestions = [word for word, _ in prefixes.most_common(5)]
+            source = "workspace prefix"
+        elif not suggestions and partial:
             prefix = context[-1]
-            if len(prefix) >= 2 and self.spelling.unknown([prefix]):
+            if len(prefix) >= 2:
                 suggestions = self.prefix_completions(prefix)
                 source = "dictionary prefix"
         return {"suggestions": suggestions, "source": source}

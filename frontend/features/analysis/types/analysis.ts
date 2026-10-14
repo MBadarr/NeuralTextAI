@@ -121,6 +121,14 @@ export type WritingFeedbackResult = {
   warnings: string[];
 };
 export type AutocompleteResult = { suggestions: string[]; source: string };
+export type EntityResult = {
+  text: string;
+  entities: AnalysisResult["entities"];
+  counts: Record<string, number>;
+  model: string;
+  language: string;
+  warnings: string[];
+};
 export type HealthResult = {
   status: string;
   service: string;

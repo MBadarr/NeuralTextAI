@@ -33,6 +33,14 @@ class NLPServiceTests(TestCase):
         self.assertTrue(result["warnings"])
         self.assertTrue(result["tokens"])
 
+    def test_entity_extraction_reports_missing_model(self):
+        result = self.nlp.entities("Microsoft works in London.")
+        self.assertEqual(result["entities"], [])
+        self.assertEqual(result["counts"], {})
+        self.assertTrue(
+            any("trained spaCy" in warning for warning in result["warnings"])
+        )
+
     def test_sentiment_summary_and_comparison(self):
         self.assertEqual(
             self.nlp.sentiment("great helpful success")["label"], "Positive"

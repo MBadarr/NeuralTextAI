@@ -77,9 +77,19 @@ All endpoints use JSON. Analysis and writing endpoints accept:
 | POST | `/writing-feedback` | Typos, structure, punctuation, and style issues |
 | POST | `/autocomplete` | Workspace n-gram and dictionary-prefix completions |
 | POST | `/keywords` | TF-IDF keyword and keyphrase extraction |
+| POST | `/entities` | English entity mentions, character spans, and type counts; does not save a document |
 | POST | `/search` | Semantic vector and lexical document ranking (`query`, `limit`) |
 
 ## Structure
+
+The four primary tools have separate workflows. Only the text analyzer stores
+a full analysis. Entity recognition runs the trained spaCy NER pipeline and
+returns highlighted mentions and counts. Writing feedback includes dependency-based
+pronoun agreement checks for present-tense forms of be, have, and do, alongside
+spelling, punctuation, and style review; it is not a comprehensive grammar checker.
+Autocomplete ranks one- and two-word contexts from the draft and saved documents,
+stops at sentence boundaries, and completes partial words using workspace vocabulary
+or dictionary frequency. It is corpus-based completion, not generative text.
 
 ### Intent, emotion, and stemming
 

@@ -159,7 +159,8 @@ export function FeatureContent({ active }: { active: string }) {
     }
   }
 
-  if (analyzerPages.includes(active)) return <TextAnalyzer feature={active} />;
+  if (analyzerPages.includes(active))
+    return <TextAnalyzer key={active} feature={active} />;
   if (toolPages.includes(active))
     return <TextTool key={active} name={active as ToolName} />;
   const terms = query.toLowerCase().trim().split(/\s+/).filter(Boolean);

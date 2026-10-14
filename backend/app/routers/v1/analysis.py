@@ -49,6 +49,11 @@ def keywords(payload: AnalysisRequest, nlp: NLPDependency):
     return nlp.keywords(payload.text)
 
 
+@router.post("/entities")
+def entities(payload: AnalysisRequest, nlp: NLPDependency):
+    return nlp.entities(payload.text)
+
+
 @router.post("/search")
 def search(payload: SearchRequest, nlp: NLPDependency, documents: DocumentDependency):
     return nlp.search(payload.query, documents.list(), payload.limit)

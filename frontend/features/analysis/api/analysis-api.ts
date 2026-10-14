@@ -2,6 +2,7 @@ import type {
   AnalysisResult,
   AutocompleteResult,
   ClassificationResult,
+  EntityResult,
   PlagiarismResult,
   SentimentResult,
   SummaryResult,
@@ -36,6 +37,9 @@ export function runTextTool(
 }
 export function getWritingFeedback(text: string, signal?: AbortSignal) {
   return post<WritingFeedbackResult>("/writing-feedback", { text }, signal);
+}
+export function getEntities(text: string, signal?: AbortSignal) {
+  return post<EntityResult>("/entities", { text }, signal);
 }
 export function getAutocomplete(text: string, signal?: AbortSignal) {
   return post<AutocompleteResult>("/autocomplete", { text }, signal);

@@ -144,6 +144,7 @@ class NLPFeaturesTests(TestCase):
                 "/writing-feedback",
                 "/autocomplete",
                 "/keywords",
+                "/entities",
             ):
                 self.assertEqual(
                     client.post(path, json={"text": "   "}).status_code, 422
@@ -163,3 +164,15 @@ class NLPFeaturesTests(TestCase):
             self.assertEqual(
                 client.post("/search", json={"query": "anything"}).json()["results"], []
             )
+
+    def test_entity_extraction_does_not_create_a_document(self):
+        with TestClient(app) as client:
+            text = "Microsoft opened a research office in London."
+            response = client.post("/entities", json={"text": text})
+            self.assertEqual(response.status_code, 200)
+            result = response.json()
+            self.assertTrue(result["entities"])
+            self.assertEqual(sum(result["counts"].values()), len(result["entities"]))
+            for entity in result["entities"]:
+                self.assertEqual(text[entity["start"] : entity["end"]], entity["text"])
+            self.assertEqual(client.get("/documents").json(), [])

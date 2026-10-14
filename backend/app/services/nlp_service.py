@@ -191,6 +191,39 @@ class NLPService:
             }
         ]
 
+    def entities(self, text: str):
+        doc = self.parse(text)
+        language = self.language(text)["code"]
+        supported = language in ("en", "und") and doc.has_annotation("ENT_IOB")
+        entities = (
+            [
+                {
+                    "text": e.text,
+                    "label": e.label_,
+                    "start": e.start_char,
+                    "end": e.end_char,
+                }
+                for e in doc.ents
+            ]
+            if supported
+            else []
+        )
+        warnings = []
+        if not doc.has_annotation("ENT_IOB"):
+            warnings.append(
+                "Entity recognition requires a trained spaCy English model."
+            )
+        if language not in ("en", "und"):
+            warnings.append("Entity recognition currently supports English text.")
+        return {
+            "text": text,
+            "entities": entities,
+            "counts": dict(Counter(entity["label"] for entity in entities)),
+            "model": self.model_name,
+            "language": language,
+            "warnings": warnings,
+        }
+
     def sentiment(self, text: str):
         scores = self._sentiment.polarity_scores(text)
         score = scores["compound"]

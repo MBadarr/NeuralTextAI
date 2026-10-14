@@ -48,4 +48,38 @@ class WritingServiceTests(TestCase):
     def test_prefix_completion_and_empty_context(self):
         self.assertEqual(self.service.autocomplete("")["suggestions"], [])
         self.assertTrue(self.service.autocomplete("analyz")["suggestions"])
-        self.assertEqual(self.service.autocomplete("this")["suggestions"], [])
+        self.assertEqual(self.service.autocomplete("this ")["suggestions"], [])
+
+    def test_known_word_prefix_and_workspace_vocabulary(self):
+        self.assertTrue(self.service.autocomplete("work")["suggestions"])
+        result = self.service.autocomplete(
+            "We use neu", [{"text": "We use neuraltext daily."}]
+        )
+        self.assertEqual(result["source"], "workspace prefix")
+        self.assertEqual(result["suggestions"][0], "neuraltext")
+
+    def test_predictions_do_not_cross_sentence_boundaries(self):
+        result = self.service.autocomplete(
+            "tools ", [{"text": "We build tools. Nobody sleeps."}]
+        )
+        self.assertEqual(result["suggestions"], [])
+
+    def test_pronoun_agreement_uses_trained_dependencies(self):
+        service = WritingService(NLPService())
+        result = service.feedback("She are writing a report.")
+        issue = next(issue for issue in result["issues"] if issue["type"] == "grammar")
+        self.assertEqual(issue["replacement"], "is")
+        self.assertEqual(
+            "She are writing a report."[issue["start"] : issue["end"]], "are"
+        )
+        for text in (
+            "We are writing a report.",
+            "She can have a report.",
+            "She and I are writing.",
+        ):
+            self.assertFalse(
+                any(
+                    issue["type"] == "grammar"
+                    for issue in service.feedback(text)["issues"]
+                )
+            )
