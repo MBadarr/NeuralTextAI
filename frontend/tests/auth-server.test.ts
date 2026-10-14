@@ -290,6 +290,75 @@ describe("authenticated backend proxy", () => {
     expect(response.headers.get("cache-control")).toBe("no-store");
   });
 
+  it("forwards entity recognition through the authenticated proxy", async () => {
+    context.cookie = "__Secure-neon-auth.session_token=fixture-token";
+    const text =
+      "The quick brown fox jumps over the lazy dog's back 123 times! Furthermore, NLP—which stands for Natural Language Processing—is transforming how humans interact with machines in 2026. Isn't it fascinating? Email us at test@example.com or for more details.  ";
+    const entities = [
+      {
+        text: "2026",
+        label: "DATE",
+        start: text.indexOf("2026"),
+        end: text.indexOf("2026") + 4,
+      },
+    ];
+    const result = {
+      text,
+      entities,
+      counts: { DATE: 1 },
+      model: "en_core_web_sm",
+      language: "en",
+      warnings: [],
+    };
+    const fetchMock = vi.fn<typeof fetch>(async (input) => {
+      const url = String(input);
+      if (url.startsWith("https://backend.example"))
+        return Response.json(result);
+      if (url.includes("/token"))
+        return Response.json({ token: "fixture-jwt" });
+      return Response.json(session);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const { POST } = await import("@/app/api/backend/[...path]/route");
+    const response = await POST(
+      new NextRequest("https://app.example/api/backend/entities", {
+        method: "POST",
+        headers: {
+          origin: "https://app.example",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ text }),
+      }),
+      { params: Promise.resolve({ path: ["entities"] }) },
+    );
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual(result);
+    const forwarded = fetchMock.mock.calls.find(
+      ([url]) => String(url) === "https://backend.example/entities",
+    );
+    expect(forwarded?.[1]?.method).toBe("POST");
+    expect(JSON.parse(String(forwarded?.[1]?.body))).toEqual({ text });
+    expect(forwarded?.[1]?.headers).toEqual({
+      Authorization: "Bearer fixture-jwt",
+      "Content-Type": "application/json",
+    });
+  });
+
+  it("still rejects unlisted backend endpoints", async () => {
+    const fetchMock = vi.fn<typeof fetch>();
+    vi.stubGlobal("fetch", fetchMock);
+    const { POST } = await import("@/app/api/backend/[...path]/route");
+    const response = await POST(
+      new NextRequest("https://app.example/api/backend/internal", {
+        method: "POST",
+        headers: { origin: "https://app.example" },
+      }),
+      { params: Promise.resolve({ path: ["internal"] }) },
+    );
+    expect(response.status).toBe(404);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("rejects cross-origin writes before fetching any session or backend data", async () => {
     const fetchMock = vi.fn<typeof fetch>();
     vi.stubGlobal("fetch", fetchMock);

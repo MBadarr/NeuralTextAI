@@ -7,7 +7,7 @@ const backend = (
   "http://localhost:8000"
 ).replace(/\/$/, "");
 const allowedPaths =
-  /^(health|analysis|sentiment|intent|emotions|summary|plagiarism|writing-feedback|autocomplete|documents(?:\/[a-zA-Z0-9-]+)?|insights|models|search|keywords)$/;
+  /^(health|analysis|entities|sentiment|intent|emotions|summary|plagiarism|writing-feedback|autocomplete|documents(?:\/[a-zA-Z0-9-]+)?|insights|models|search|keywords)$/;
 
 async function forward(
   request: NextRequest,

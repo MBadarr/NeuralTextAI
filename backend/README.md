@@ -82,6 +82,34 @@ All endpoints use JSON. Analysis and writing endpoints accept:
 
 ## Structure
 
+### Reliability boundaries
+
+English annotations, writing review, sentiment, and word completion reject
+unsupported languages and short non-Latin text instead of returning English
+predictions. Generic keyword and summary extraction can process other scripts,
+but sentence segmentation still uses the English tokenizer.
+
+Writing checks preserve mandative clauses such as "I suggest that he have a rest"
+and linking adjectives such as "The food tastes good". Action-adverb corrections
+are limited to selected verbs; this remains a bounded rule checker.
+The first 50 issues are returned, with a warning when more are available.
+
+Emotion evidence includes explicit emotion words and a small set of contextual
+loss cues, with negation handling. These cues are not a comprehensive understanding
+of emotion. Sentiment reports `Uncertain` when recognized irony or loss cues conflict
+with its lexical score. The score remains VADER's raw lexical score; the legacy
+`confidence` field is always zero because this method has no calibrated confidence.
+Other sarcasm and implicit meanings may still be missed.
+
+Summaries omit duplicate sentences and preserve original wording. Similarity
+reports the true highest score, even below the 20% threshold used for the match
+list. Semantic search still requires the optional vector model; its lexical
+fallback is explicitly labeled. Readability scores remain estimates.
+
+Regression tests cover these boundaries, model fallback, authentication, document
+ownership, and request capacity. PostgreSQL integration tests require a separate
+`TEST_DATABASE_URL`; unit tests do not validate the deployed database or browser.
+
 The four primary tools have separate workflows. Only the text analyzer stores
 a full analysis. Entity recognition runs the trained spaCy NER pipeline and
 returns highlighted mentions and counts. Writing feedback includes dependency-based

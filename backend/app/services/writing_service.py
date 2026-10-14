@@ -6,6 +6,7 @@ from heapq import nsmallest
 from spellchecker import SpellChecker
 
 from app.services.nlp_service import NLPService
+from app.services.text_classification import supports_english
 
 
 class WritingService:
@@ -33,7 +34,7 @@ class WritingService:
 
     def feedback(self, text: str):
         language = self.nlp.language(text)["code"]
-        if language not in ("en", "und"):
+        if not supports_english(text, language):
             return {
                 "issues": [],
                 "issue_count": 0,
@@ -121,6 +122,30 @@ class WritingService:
                         sentence.end_char,
                     )
                     break
+            for token in sentence:
+                if (
+                    token.lower_ == "good"
+                    and token.dep_ in {"advmod", "acomp"}
+                    and token.head.pos_ == "VERB"
+                    and token.head.lemma_
+                    in {
+                        "write",
+                        "speak",
+                        "sing",
+                        "dance",
+                        "perform",
+                        "work",
+                        "play",
+                        "run",
+                    }
+                ):
+                    add(
+                        "grammar",
+                        "Use an adverb to describe this action.",
+                        token.idx,
+                        token.idx + len(token.text),
+                        "Well" if token.text[0].isupper() else "well",
+                    )
             # Dependency subjects avoid treating nearby pronouns as subjects.
             for subject in sentence:
                 if subject.dep_ not in ("nsubj", "nsubjpass"):
@@ -131,6 +156,24 @@ class WritingService:
                 if pronoun not in ("i", "you", "he", "she", "it", "we", "they"):
                     continue
                 verb = subject.head
+                # Mandative clauses use the base form: "I suggest he have ...".
+                if verb.dep_ in {"ccomp", "xcomp"} and (
+                    verb.head.lemma_
+                    in {
+                        "suggest",
+                        "recommend",
+                        "insist",
+                        "demand",
+                        "request",
+                        "require",
+                        "propose",
+                        "ask",
+                        "urge",
+                    }
+                    or verb.head.lower_
+                    in {"important", "essential", "necessary", "vital"}
+                ):
+                    continue
                 finite = next(
                     (
                         child
@@ -185,9 +228,24 @@ class WritingService:
             warnings.append(
                 "A trained English model is required for grammar and passive-voice checks."
             )
+        if len(issues) > 50:
+            warnings.append(
+                f"Showing the first 50 of {len(issues)} issues. Apply corrections to review the remaining issues."
+            )
+        if language == "und":
+            warnings.append(
+                "Language is uncertain; English writing checks are assumed."
+            )
         return {"issues": issues[:50], "issue_count": len(issues), "warnings": warnings}
 
     def autocomplete(self, text: str, documents: list[dict] | None = None):
+        language = self.nlp.language(text)["code"]
+        if text.strip() and not supports_english(text, language):
+            return {
+                "suggestions": [],
+                "source": "unsupported language",
+                "warnings": ["Word completion currently supports English text only."],
+            }
         context = re.findall(r"[\w']+", re.split(r"[.!?;\n]", text.lower())[-1])
         if not context:
             return {"suggestions": [], "source": "workspace n-grams"}
@@ -224,4 +282,10 @@ class WritingService:
             if len(prefix) >= 2:
                 suggestions = self.prefix_completions(prefix)
                 source = "dictionary prefix"
-        return {"suggestions": suggestions, "source": source}
+        return {
+            "suggestions": suggestions,
+            "source": source,
+            "warnings": ["Language is uncertain; English word completion is assumed."]
+            if language == "und"
+            else [],
+        }

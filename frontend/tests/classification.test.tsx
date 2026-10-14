@@ -57,6 +57,33 @@ const intent: ClassificationResult = {
 };
 
 describe("new analysis results", () => {
+  it.each([
+    "Uncertain",
+    "Unsupported",
+  ])("displays %s sentiment without claiming reliable polarity", async (label) => {
+    runTextTool.mockResolvedValue({
+      label,
+      score: 0.6,
+      confidence: 0,
+      positive: 0.7,
+      negative: 0,
+      neutral: 0.3,
+      method: "VADER",
+      warnings: ["Review this assessment."],
+    });
+    render(<TextTool name="Sentiment analysis" />);
+    fireEvent.change(screen.getByRole("textbox", { name: "Text" }), {
+      target: { value: "Sample text" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Run sentiment analysis" }),
+    );
+    await screen.findByText(label);
+    expect(screen.getByText("Review this assessment.")).toBeTruthy();
+    if (label === "Unsupported")
+      expect(screen.queryByText(/Lexical compound score/)).toBeNull();
+    else expect(screen.getByText(/conflicting cues/)).toBeTruthy();
+  });
   it("shows emotion evidence and explicitly excludes negated evidence", () => {
     render(<ClassificationResults kind="Emotion" result={emotion} />);
     expect(screen.getByText(/sad · Sadness.*negated, excluded/)).toBeTruthy();

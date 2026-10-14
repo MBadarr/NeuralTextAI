@@ -7,6 +7,7 @@ Scores are evidence/similarity scores, never calibrated probabilities.
 
 from collections import Counter
 from re import compile
+from unicodedata import name
 
 import numpy as np
 from spacy.tokens import Doc, Span, Token
@@ -50,6 +51,22 @@ COMPLAINT = compile(
 NEGATORS = {"not", "n't", "never", "no", "neither", "nor", "hardly", "without"}
 INTENSIFIERS = {"very", "extremely", "really", "so", "deeply", "absolutely"}
 DAMPENERS = {"slightly", "somewhat", "rather", "little", "barely"}
+LOSS_EVENT = compile(
+    r"\b(?:lost|loss of)\s+(?:my|our|his|her|their)\s+"
+    r"(?:(?:best|close|dear|beloved)\s+)?"
+    r"(?:friend|mother|father|parent|child|son|daughter|wife|husband|partner|job|home)\b"
+    r"|\b(?:my|our|his|her|their)\s+(?:friend|mother|father|parent|child|wife|husband|partner)\s+(?:died|passed away)\b"
+)
+
+
+def supports_english(text: str, language: str) -> bool:
+    letters = [character for character in text if character.isalpha()]
+    return (
+        language in {"en", "und"}
+        and bool(letters)
+        and sum("LATIN" in name(character, "") for character in letters) / len(letters)
+        >= 0.8
+    )
 
 
 def _context(token: Token, sentence: Span) -> list[Token]:
@@ -114,7 +131,7 @@ class TextClassifier:
 
     def intent(self, doc: Doc, language: str):
         method = "English speech-act rules + spaCy semantic examples"
-        if language not in ("en", "und"):
+        if not supports_english(doc.text, language) and any(t.is_alpha for t in doc):
             return self._unsupported(method)
         results = []
         has_vectors = bool(self.nlp.vocab.vectors_length)
@@ -199,13 +216,39 @@ class TextClassifier:
 
     def emotions(self, doc: Doc, language: str):
         method = "English emotion lexicon with negation and intensity modifiers"
-        if language not in ("en", "und"):
+        if not supports_english(doc.text, language) and any(t.is_alpha for t in doc):
             return self._unsupported(method)
         totals = {label: 0.0 for label in EMOTION_WORDS}
         sentences = []
         for sentence in doc.sents:
             scores = {label: 0.0 for label in EMOTION_WORDS}
             evidence = []
+            for match in LOSS_EVENT.finditer(sentence.text.lower()):
+                token = next(
+                    (
+                        t
+                        for t in sentence
+                        if t.idx
+                        <= sentence.start_char + match.start()
+                        < t.idx + len(t.text)
+                    ),
+                    None,
+                )
+                negated = token is not None and any(
+                    t.lower_ in NEGATORS for t in _context(token, sentence)
+                )
+                weight = 0.0 if negated else 1.0
+                scores["Sadness"] += weight
+                evidence.append(
+                    {
+                        "text": sentence.text[match.start() : match.end()],
+                        "label": "Sadness",
+                        "negated": negated,
+                        "weight": weight,
+                        "start": sentence.start_char + match.start(),
+                        "end": sentence.start_char + match.end(),
+                    }
+                )
             for token in sentence:
                 label = EMOTION_LOOKUP.get(token.lower_) or EMOTION_LOOKUP.get(
                     token.lemma_.lower()
@@ -258,7 +301,7 @@ class TextClassifier:
             "label": self._emotion_label(totals),
             "scores": totals,
             "sentences": sentences,
-            "method": method,
+            "method": method + " and contextual loss cues",
             "warnings": [
                 "Scores count weighted emotion evidence, not probabilities. Neutral means no supported emotion evidence. Sarcasm, implicit feelings and quoted speech may be misinterpreted."
             ]

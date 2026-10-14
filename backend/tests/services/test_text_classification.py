@@ -85,3 +85,35 @@ class TextClassificationTests(TestCase):
             self.assertEqual(result["label"], "Unsupported")
             self.assertEqual(result["scores"], {})
             self.assertTrue(result["warnings"])
+
+    def test_contextual_loss_evidence_and_negation(self):
+        for text in (
+            "I lost my best friend yesterday.",
+            "My father passed away.",
+            "We lost our home.",
+        ):
+            with self.subTest(text=text):
+                result = self.classifier.emotions(self.nlp(text), "en")
+                self.assertEqual(result["label"], "Sadness")
+                evidence = result["sentences"][0]["evidence"][0]
+                self.assertEqual(
+                    text[evidence["start"] : evidence["end"]], evidence["text"]
+                )
+        self.assertEqual(
+            self.classifier.emotions(self.nlp("I never lost my friend."), "en")[
+                "label"
+            ],
+            "Neutral",
+        )
+        self.assertEqual(
+            self.classifier.emotions(self.nlp("The company lost its keys."), "en")[
+                "label"
+            ],
+            "Neutral",
+        )
+
+    def test_unknown_language_with_non_latin_script_is_unsupported(self):
+        for classify in (self.classifier.intent, self.classifier.emotions):
+            self.assertEqual(
+                classify(self.nlp("你好世界"), "und")["label"], "Unsupported"
+            )

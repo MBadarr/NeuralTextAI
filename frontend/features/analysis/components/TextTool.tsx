@@ -163,23 +163,33 @@ export function TextTool({ name }: { name: ToolName }) {
                 <strong className="block text-3xl text-workspace-accent">
                   {result.label}
                 </strong>
-                <p className="text-sm">
-                  Compound score: {result.score} (-1 to +1)
-                </p>
-                <p className="text-xs text-workspace-muted">
-                  This score measures sentiment intensity, not prediction
-                  confidence.
-                </p>
-                {[
-                  ["Positive", result.positive],
-                  ["Neutral", result.neutral],
-                  ["Negative", result.negative],
-                ].map(([label, value]) => (
-                  <div key={label} className="flex justify-between text-sm">
-                    <span>{label}</span>
-                    <strong>{Math.round(Number(value) * 100)}%</strong>
-                  </div>
-                ))}
+                {result.label === "Uncertain" && (
+                  <p className="text-sm text-workspace-warning">
+                    The text contains conflicting cues. The lexical score below
+                    does not establish its overall tone.
+                  </p>
+                )}
+                {result.label !== "Unsupported" && (
+                  <>
+                    <p className="text-sm">
+                      Lexical compound score: {result.score} (-1 to +1)
+                    </p>
+                    <p className="text-xs text-workspace-muted">
+                      This score measures sentiment intensity, not prediction
+                      confidence.
+                    </p>
+                    {[
+                      ["Positive", result.positive],
+                      ["Neutral", result.neutral],
+                      ["Negative", result.negative],
+                    ].map(([label, value]) => (
+                      <div key={label} className="flex justify-between text-sm">
+                        <span>{label}</span>
+                        <strong>{Math.round(Number(value) * 100)}%</strong>
+                      </div>
+                    ))}
+                  </>
+                )}
                 {result.warnings.map((warning) => (
                   <p key={warning} className="text-xs text-workspace-warning">
                     {warning}
@@ -212,6 +222,10 @@ export function TextTool({ name }: { name: ToolName }) {
                 <p className="text-xs text-workspace-muted">
                   Highest similarity across {result.compared_documents} saved
                   documents
+                </p>
+                <p className="text-xs text-workspace-muted">
+                  The list shows documents with at least 20% lexical similarity.
+                  The highest score includes lower similarities.
                 </p>
                 {!result.compared_documents && (
                   <p className="text-sm">

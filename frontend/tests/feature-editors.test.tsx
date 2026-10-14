@@ -185,4 +185,20 @@ describe("feature-specific editors", () => {
     await screen.findByText(/0 suggestions/);
     expect(api.getAutocomplete).not.toHaveBeenCalled();
   });
+
+  it("shows completion language limitations returned by the service", async () => {
+    api.getAutocomplete.mockResolvedValue({
+      suggestions: [],
+      source: "unsupported language",
+      warnings: ["Word completion currently supports English text only."],
+    });
+    render(<TextAnalyzer feature="Predictive text" />);
+    fireEvent.change(screen.getByRole("textbox", { name: "Text" }), {
+      target: { value: "مرحبا" },
+    });
+    await screen.findByText(
+      "Word completion currently supports English text only.",
+    );
+    expect(api.getWritingFeedback).not.toHaveBeenCalled();
+  });
 });

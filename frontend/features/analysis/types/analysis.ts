@@ -120,7 +120,11 @@ export type WritingFeedbackResult = {
   issue_count: number;
   warnings: string[];
 };
-export type AutocompleteResult = { suggestions: string[]; source: string };
+export type AutocompleteResult = {
+  suggestions: string[];
+  source: string;
+  warnings?: string[];
+};
 export type EntityResult = {
   text: string;
   entities: AnalysisResult["entities"];

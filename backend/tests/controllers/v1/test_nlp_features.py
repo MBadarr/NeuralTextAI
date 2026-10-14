@@ -176,3 +176,35 @@ class NLPFeaturesTests(TestCase):
             for entity in result["entities"]:
                 self.assertEqual(text[entity["start"] : entity["end"]], entity["text"])
             self.assertEqual(client.get("/documents").json(), [])
+
+    def test_entity_extraction_accepts_reported_text_with_unicode_and_email(self):
+        text = "The quick brown fox jumps over the lazy dog's back 123 times! Furthermore, NLP—which stands for Natural Language Processing—is transforming how humans interact with machines in 2026. Isn't it fascinating? Email us at test@example.com or for more details.  "
+        with TestClient(app) as client:
+            response = client.post("/entities", json={"text": text})
+            self.assertEqual(response.status_code, 200)
+            result = response.json()
+            self.assertEqual(result["text"], text)
+            self.assertTrue(
+                any(
+                    e["text"] == "2026" and e["label"] == "DATE"
+                    for e in result["entities"]
+                )
+            )
+            for entity in result["entities"]:
+                self.assertEqual(text[entity["start"] : entity["end"]], entity["text"])
+
+    def test_reliability_boundaries_round_trip_through_api(self):
+        with TestClient(app) as client:
+            result = client.post(
+                "/sentiment", json={"text": "Fantastic, another three-hour delay."}
+            ).json()
+            self.assertEqual(result["label"], "Uncertain")
+            self.assertEqual(result["confidence"], 0)
+            self.assertTrue(result["warnings"])
+            result = client.post("/autocomplete", json={"text": "مرحبا"}).json()
+            self.assertEqual(result["suggestions"], [])
+            self.assertTrue(result["warnings"])
+            result = client.post("/analysis", json={"text": "مرحبا بالعالم"}).json()
+            self.assertEqual(result["sentiment"]["label"], "Unsupported")
+            self.assertIsNone(result["readability"])
+            self.assertEqual(result["entities"], [])

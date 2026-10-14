@@ -116,14 +116,14 @@ export function TextAnalyzer({
           : Promise.resolve({ issues: [], warnings: [] }),
         completesText && completionContext.trim()
           ? getAutocomplete(completionContext, controller.signal)
-          : Promise.resolve({ suggestions: [], source: "" }),
+          : Promise.resolve({ suggestions: [], source: "", warnings: [] }),
       ])
         .then(([writing, completion]) => {
           if (controller.signal.aborted) return;
           setFeedback(writing.issues);
           setSuggestions(completion.suggestions);
           setSource(completion.source);
-          setWarnings(writing.warnings);
+          setWarnings([...writing.warnings, ...(completion.warnings ?? [])]);
           setFeedbackStatus("ready");
         })
         .catch((reason) => {

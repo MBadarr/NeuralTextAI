@@ -2,6 +2,7 @@ from collections import Counter
 from datetime import UTC, datetime
 from functools import lru_cache
 from os import getenv
+from re import search
 from threading import Lock
 from time import perf_counter
 from uuid import uuid4
@@ -16,7 +17,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
 from app.models.document import Document
-from app.services.text_classification import TextClassifier
+from app.services.text_classification import TextClassifier, supports_english
 
 DetectorFactory.seed = 0
 
@@ -73,7 +74,7 @@ class NLPService:
         except LangDetectException:
             return {"code": "und", "confidence": 0.0}
 
-    def _warnings(self, language: str):
+    def _warnings(self, language: str, supported: bool | None = None):
         warnings = []
         if self.model_name == "en_blank":
             warnings.append(
@@ -83,7 +84,11 @@ class NLPService:
             warnings.append(
                 "Low-memory model active: semantic search uses lexical similarity and intent classification uses speech-act rules."
             )
-        if language not in ("en", "und"):
+        if supported is False:
+            warnings.append(
+                "English linguistic annotations and readability are unavailable for this text."
+            )
+        elif language not in ("en", "und"):
             warnings.append(
                 "Detected non-English text. English linguistic analysis, sentiment and readability may be inaccurate."
             )
@@ -97,22 +102,27 @@ class NLPService:
         words = [token for token in doc if token.is_alpha]
         sentences = [sentence for sentence in doc.sents if sentence.text.strip()]
         language = self.language(text)
+        english = supports_english(text, language["code"])
         frequencies = Counter(
-            (token.lemma_ or token.text).lower() for token in words if not token.is_stop
+            ((token.lemma_ or token.text) if english else token.text).lower()
+            for token in words
+            if not english or not token.is_stop
         )
-        entities = [
-            {
-                "text": e.text,
-                "label": e.label_,
-                "start": e.start_char,
-                "end": e.end_char,
-            }
-            for e in doc.ents
-        ]
+        entities = (
+            [
+                {
+                    "text": e.text,
+                    "label": e.label_,
+                    "start": e.start_char,
+                    "end": e.end_char,
+                }
+                for e in doc.ents
+            ]
+            if english
+            else []
+        )
         keywords = self.keywords(text)["keywords"]
-        readability = (
-            self.readability(text, doc) if language["code"] in ("en", "und") else None
-        )
+        readability = self.readability(text, doc) if english else None
         result = {
             "id": str(uuid4()),
             "title": title or "Untitled analysis",
@@ -128,12 +138,16 @@ class NLPService:
             "tokens": [
                 {
                     "text": t.text,
-                    "lemma": t.lemma_ or t.text.lower(),
+                    "lemma": (t.lemma_ or t.text.lower()) if english else "",
                     "stem": self.stem(t.text, language["code"]),
-                    "part_of_speech": t.pos_ or "Unavailable",
-                    "is_stop": t.is_stop,
-                    "dependency": t.dep_ or "Unavailable",
-                    "head": t.head.text,
+                    "part_of_speech": (t.pos_ or "Unavailable")
+                    if english
+                    else "Unavailable",
+                    "is_stop": t.is_stop if english else False,
+                    "dependency": (t.dep_ or "Unavailable")
+                    if english
+                    else "Unavailable",
+                    "head": t.head.text if english else "",
                     "start": t.idx,
                     "end": t.idx + len(t.text),
                 }
@@ -142,7 +156,7 @@ class NLPService:
             ],
             "entities": entities,
             "noun_phrases": [chunk.text for chunk in doc.noun_chunks]
-            if doc.has_annotation("DEP")
+            if english and doc.has_annotation("DEP")
             else [],
             "keywords": keywords,
             "word_frequencies": [
@@ -155,7 +169,7 @@ class NLPService:
             "emotions": self._classifier.emotions(doc, language["code"]),
             "summary": self.summary(text)["summary"],
             "model": self.model_name,
-            "warnings": self._warnings(language["code"]),
+            "warnings": self._warnings(language["code"], english),
         }
         result["processing_time_ms"] = round((perf_counter() - started) * 1000, 2)
         return result
@@ -194,7 +208,7 @@ class NLPService:
     def entities(self, text: str):
         doc = self.parse(text)
         language = self.language(text)["code"]
-        supported = language in ("en", "und") and doc.has_annotation("ENT_IOB")
+        supported = supports_english(text, language) and doc.has_annotation("ENT_IOB")
         entities = (
             [
                 {
@@ -213,7 +227,7 @@ class NLPService:
             warnings.append(
                 "Entity recognition requires a trained spaCy English model."
             )
-        if language not in ("en", "und"):
+        if not supports_english(text, language):
             warnings.append("Entity recognition currently supports English text.")
         return {
             "text": text,
@@ -225,26 +239,65 @@ class NLPService:
         }
 
     def sentiment(self, text: str):
+        language = self.language(text)["code"]
+        emotions = self.emotions(text)
+        if not supports_english(text, language):
+            return {
+                "label": "Unsupported",
+                "score": 0.0,
+                "confidence": 0.0,
+                "positive": 0.0,
+                "negative": 0.0,
+                "neutral": 0.0,
+                "method": "VADER (English only)",
+                "emotions": emotions,
+                "warnings": [
+                    "Sentiment analysis currently supports English text only."
+                ],
+            }
         scores = self._sentiment.polarity_scores(text)
         score = scores["compound"]
+        label = (
+            "Positive" if score >= 0.05 else "Negative" if score <= -0.05 else "Neutral"
+        )
+        warnings = self._warnings(language)
+        # Abstain on conflicting evidence rather than pretend to resolve sarcasm.
+        ironic = search(
+            r"\b(?:great|fantastic|wonderful|excellent|amazing)\b[,.! ]+\s*(?:another|more|yet another)\b",
+            text.lower(),
+        ) and search(
+            r"\b(?:delay|delays|problem|problems|failure|failures|broken|cancelled|canceled|waiting)\b",
+            text.lower(),
+        )
+        loss = any(
+            " " in evidence["text"]
+            and evidence["label"] == "Sadness"
+            and evidence["weight"] > 0
+            for sentence in emotions["sentences"]
+            for evidence in sentence["evidence"]
+        )
+        if ironic or (loss and score > 0 and emotions["scores"].get("Joy", 0) == 0):
+            label = "Uncertain"
+            warnings.append(
+                "Context conflicts with the lexical sentiment score. Review the text for irony or loss; no reliable polarity is assigned."
+            )
+        warnings.append(
+            "Lexical sentiment can miss sarcasm and implicit meaning. The compound score is not confidence."
+        )
         return {
-            "label": "Positive"
-            if score >= 0.05
-            else "Negative"
-            if score <= -0.05
-            else "Neutral",
+            "label": label,
             "score": score,
-            "confidence": abs(score),
+            "confidence": 0.0,
             "positive": scores["pos"],
             "negative": scores["neg"],
             "neutral": scores["neu"],
             "method": "VADER",
-            "emotions": self.emotions(text),
-            "warnings": self._warnings(self.language(text)["code"]),
+            "emotions": emotions,
+            "warnings": warnings,
         }
 
     def stem(self, text: str, language: str = "en") -> str:
-        if language not in ("en", "und") or not text.isalpha():
+        if not supports_english(text, language) or not text.isalpha():
             return ""
         # Snowball's generated stemmer maintains mutable state per call.
         with self._lock:
@@ -264,7 +317,11 @@ class NLPService:
             return {"keywords": []}
         try:
             vectorizer = TfidfVectorizer(
-                stop_words="english", ngram_range=(1, 2), max_features=5000
+                stop_words="english"
+                if supports_english(text, self.language(text)["code"])
+                else None,
+                ngram_range=(1, 2),
+                max_features=5000,
             )
             matrix = vectorizer.fit_transform(sentences)
         except ValueError:
@@ -311,12 +368,23 @@ class NLPService:
         }
 
     def summary(self, text: str, sentence_limit: int = 3):
-        sentences = self.sentences(text)
+        original = self.sentences(text)
+        # Keep original wording/order but avoid filling a summary with duplicates.
+        seen = set()
+        sentences = []
+        for sentence in original:
+            normalized = " ".join(sentence.lower().split())
+            if normalized not in seen:
+                seen.add(normalized)
+                sentences.append(sentence)
         chosen = list(range(min(sentence_limit, len(sentences))))
         if len(sentences) > sentence_limit:
             try:
                 matrix = TfidfVectorizer(
-                    stop_words="english", max_features=5000
+                    stop_words="english"
+                    if supports_english(text, self.language(text)["code"])
+                    else None,
+                    max_features=5000,
                 ).fit_transform(sentences)
                 centroid = np.asarray(matrix.mean(axis=0))
                 scores = cosine_similarity(matrix, centroid).ravel()
@@ -329,7 +397,7 @@ class NLPService:
                 pass
         return {
             "summary": " ".join(sentences[i] for i in chosen),
-            "sentence_count": len(sentences),
+            "sentence_count": len(original),
             "selected_sentence_count": len(chosen),
             "method": "TF-IDF sentence ranking",
         }
@@ -360,7 +428,7 @@ class NLPService:
         ]
         matches.sort(key=lambda item: item["overlap"], reverse=True)
         return {
-            "match_percentage": max((item["overlap"] for item in matches), default=0),
+            "match_percentage": round(float(max(similarities, default=0)) * 100, 1),
             "matches": matches,
             "method": "TF-IDF cosine similarity",
             "compared_documents": len(documents),

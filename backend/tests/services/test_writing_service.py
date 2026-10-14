@@ -83,3 +83,37 @@ class WritingServiceTests(TestCase):
                     for issue in service.feedback(text)["issues"]
                 )
             )
+
+    def test_subjunctives_and_linking_adjectives_are_not_corrected(self):
+        service = WritingService(NLPService())
+        for text in (
+            "I suggest that he have a rest.",
+            "We recommend that she be ready.",
+            "I insist that he do the work.",
+            "The food tastes good.",
+            "She looks good.",
+        ):
+            with self.subTest(text=text):
+                self.assertFalse(
+                    any(
+                        i["type"] == "grammar" for i in service.feedback(text)["issues"]
+                    )
+                )
+        text = "She writes good."
+        issue = next(
+            i for i in service.feedback(text)["issues"] if i["type"] == "grammar"
+        )
+        self.assertEqual(text[issue["start"] : issue["end"]], "good")
+        self.assertEqual(issue["replacement"], "well")
+
+    def test_short_non_latin_text_is_not_checked_as_english(self):
+        for text in ("你好世界", "مرحبا"):
+            self.assertEqual(self.service.feedback(text)["issues"], [])
+            result = self.service.autocomplete(text)
+            self.assertEqual(result["suggestions"], [])
+            self.assertTrue(result["warnings"])
+
+    def test_truncated_issues_are_disclosed(self):
+        result = self.service.feedback("This  is  a  simple  sentence. " * 35)
+        self.assertEqual(len(result["issues"]), 50)
+        self.assertTrue(any("first 50" in warning for warning in result["warnings"]))

@@ -176,7 +176,7 @@ export function AnalysisResults({
                     className="border-t border-workspace-border"
                   >
                     <td className="p-2">{token.text}</td>
-                    <td className="p-2">{token.lemma}</td>
+                    <td className="p-2">{token.lemma || "Unavailable"}</td>
                     <td className="p-2">{token.stem || "—"}</td>
                     <td className="p-2">{token.part_of_speech}</td>
                     <td className="p-2">{token.dependency}</td>
@@ -245,9 +245,16 @@ export function AnalysisResults({
               </p>
             )}
             <p className="text-sm">
-              Sentiment: <strong>{result.sentiment.label}</strong> · Compound
-              score {result.sentiment.score}
+              Sentiment: <strong>{result.sentiment.label}</strong>
+              {result.sentiment.label !== "Unsupported" && (
+                <> · Lexical compound score {result.sentiment.score}</>
+              )}
             </p>
+            {result.sentiment.label === "Uncertain" && (
+              <p className="text-xs text-workspace-warning">
+                Conflicting cues prevent a reliable polarity assignment.
+              </p>
+            )}
           </div>
         )}
         {tab === "Summary" && (

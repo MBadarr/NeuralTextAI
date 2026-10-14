@@ -24,3 +24,4 @@ class WritingFeedbackResponse(BaseModel):
 class AutocompleteResponse(BaseModel):
     suggestions: list[str]
     source: str = "workspace n-grams"
+    warnings: list[str] = []
